@@ -10,7 +10,8 @@
  * Idempotent: uses upsert on the unique `code` column, so re-running is safe.
  */
 
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
 import { google } from "googleapis";
 import { createClient } from "@supabase/supabase-js";
 
