@@ -2,9 +2,13 @@ import { z } from "zod";
 
 const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
+  // Optional. If set, must be a real secret (>=16 chars). When absent we fall
+  // back to SUPABASE_SERVICE_ROLE_KEY (see getServerEnv) so the app works on a
+  // host where we cannot add a new env var.
   SESSION_SECRET: z
     .string()
-    .min(16, "SESSION_SECRET is required (min 16 chars) — used to sign admin session tokens"),
+    .min(16, "SESSION_SECRET, if set, must be at least 16 chars")
+    .optional(),
 });
 
 const sheetsLegacyEnvSchema = z.object({
@@ -35,7 +39,14 @@ export function getServerEnv() {
     throw new Error(`Invalid server environment configuration:\n${issues}`);
   }
 
-  return parsed.data;
+  const data = parsed.data;
+  return {
+    SUPABASE_SERVICE_ROLE_KEY: data.SUPABASE_SERVICE_ROLE_KEY,
+    // Effective secret used to sign/verify admin session cookies. Prefer a
+    // dedicated SESSION_SECRET; fall back to the always-present, high-entropy
+    // service-role key so no new env var is needed on the host.
+    SESSION_SECRET: data.SESSION_SECRET ?? data.SUPABASE_SERVICE_ROLE_KEY,
+  };
 }
 
 export function getSheetsLegacyEnv() {

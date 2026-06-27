@@ -17,7 +17,9 @@ export async function middleware(request: NextRequest) {
   }
 
   const token = request.cookies.get(ADMIN_COOKIE_NAME)?.value;
-  const secret = process.env.SESSION_SECRET;
+  // Must match the secret the login route signs with (see getServerEnv):
+  // prefer SESSION_SECRET, else fall back to the service-role key.
+  const secret = process.env.SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
   const session = token && secret ? await verifySession(token, secret) : null;
 
   if (!session) {
