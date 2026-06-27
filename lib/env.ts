@@ -2,7 +2,9 @@ import { z } from "zod";
 
 const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
-  ADMIN_PASSWORD: z.string().min(4, "ADMIN_PASSWORD is required (min 4 chars)"),
+  SESSION_SECRET: z
+    .string()
+    .min(16, "SESSION_SECRET is required (min 16 chars) — used to sign admin session tokens"),
 });
 
 const sheetsLegacyEnvSchema = z.object({
@@ -23,7 +25,7 @@ const publicEnvSchema = z.object({
 export function getServerEnv() {
   const parsed = serverEnvSchema.safeParse({
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-    ADMIN_PASSWORD: process.env.ADMIN_PASSWORD,
+    SESSION_SECRET: process.env.SESSION_SECRET,
   });
 
   if (!parsed.success) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { appendCodes, getAllCodeStrings } from "@/lib/supabase/codes";
 import { generateUniqueCodes } from "@/lib/codes/generator";
+import { isAdminAuthed } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,10 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  if (!(await isAdminAuthed())) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();

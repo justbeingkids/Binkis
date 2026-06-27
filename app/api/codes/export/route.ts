@@ -1,4 +1,5 @@
 import { getAllCodes } from "@/lib/supabase/codes";
+import { isAdminAuthed } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,13 @@ function buildFactoryCsv(codes: string[], domain: string): string {
 }
 
 export async function GET(request: Request) {
+  if (!(await isAdminAuthed())) {
+    return new Response(JSON.stringify({ error: "No autorizado" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const url = new URL(request.url);
   const scope = (url.searchParams.get("scope") ?? "all") as Scope;
   const domain = sanitizeDomain(url.searchParams.get("domain"));

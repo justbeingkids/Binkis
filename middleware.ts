@@ -1,23 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_COOKIE_NAME } from "@/lib/admin-auth";
+import { verifySession } from "@/lib/session";
 
-const ADMIN_PROTECTED_PREFIXES = ["/codes", "/generate", "/verify", "/winners", "/card"];
+const ADMIN_PROTECTED_PREFIXES = ["/codes", "/generate", "/verify", "/winners", "/card", "/lottery"];
 
 function isAdminPath(pathname: string): boolean {
   if (pathname === "/") return true;
   return ADMIN_PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (!isAdminPath(pathname)) {
     return NextResponse.next();
   }
 
-  const cookie = request.cookies.get(ADMIN_COOKIE_NAME)?.value;
-  const expected = process.env.ADMIN_PASSWORD;
-  if (!cookie || !expected || cookie !== expected) {
+  const token = request.cookies.get(ADMIN_COOKIE_NAME)?.value;
+  const secret = process.env.SESSION_SECRET;
+  const session = token && secret ? await verifySession(token, secret) : null;
+
+  if (!session) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(loginUrl);

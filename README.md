@@ -136,9 +136,26 @@ Cada codigo tiene la forma `BNK-XXXX-XXXX` (12 caracteres con prefijo) usando al
 
 Todo se refleja en vivo en el Google Sheet compartido.
 
+## Autenticacion del admin
+
+El panel (`/`, `/codes`, `/generate`, `/winners`, `/verify`, `/lottery`) y las APIs
+de administracion (`/api/codes/generate`, `/api/codes/export`, `/api/lottery/run`)
+estan protegidos por login. Los usuarios autorizados viven en la tabla
+`admin_users` de Supabase (email + password con hash scrypt). Al iniciar sesion se
+emite una cookie de sesion firmada con HMAC (`SESSION_SECRET`); la cookie ya **no**
+contiene el password.
+
+- **Usuario inicial** (creado por `supabase/schema.sql`): `test@gmail.com` / `test`
+- **Variable requerida**: `SESSION_SECRET` (string aleatorio, min 16 chars) — firma las cookies de sesion
+- **Agregar / rotar usuarios**: `npm run seed-admin -- <email> <password>`
+- **Cerrar sesion**: `DELETE /api/admin/login` (borra la cookie)
+
+> Cambiar `SESSION_SECRET` invalida todas las sesiones activas. El password real
+> nunca se guarda en texto plano: solo su hash scrypt en `admin_users`.
+
 ## Notas
 
-- El demo no incluye autenticacion en el admin (en produccion ira detras de login)
+- El password se guarda con hash scrypt; el admin va detras de login (email + password)
 - El demo no incluye rate limiting (en produccion va con anti-fraude por IP + por codigo)
 - El demo no incluye importacion CSV (en produccion habra para cargar los 4000 reales)
 - El demo no incluye exportacion / reportes

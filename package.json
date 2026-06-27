@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "migrate-sheets": "tsx scripts/migrate-sheets-to-supabase.ts"
+    "migrate-sheets": "tsx scripts/migrate-sheets-to-supabase.ts",
+    "seed-admin": "tsx scripts/seed-admin.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",

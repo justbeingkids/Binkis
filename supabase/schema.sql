@@ -43,10 +43,33 @@ create index if not exists idx_visit_logs_ts on public.visit_logs (ts desc);
 create index if not exists idx_visit_logs_auth_method on public.visit_logs (auth_method);
 create index if not exists idx_visit_logs_country on public.visit_logs (country);
 
--- 3) Row Level Security: lock both tables to service_role only.
+-- 3) admin_users table: who is allowed into the admin panel.
+--    password_hash is a self-contained scrypt string (see lib/password.ts):
+--    "scrypt$N$r$p$<salt-b64>$<hash-b64>". Never store plaintext passwords.
+create table if not exists public.admin_users (
+  id uuid primary key default gen_random_uuid(),
+  email text unique not null,
+  password_hash text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_admin_users_email on public.admin_users (email);
+
+-- Seed the initial admin: test@gmail.com / test
+-- (scrypt hash of "test"; rotate this in production via `npm run seed-admin`).
+-- Idempotent: re-running schema.sql will not duplicate or overwrite the user.
+insert into public.admin_users (email, password_hash)
+values (
+  'test@gmail.com',
+  'scrypt$16384$8$1$2p6QQOBpWvv9iG3jMMgtbw==$7aN2SbJ1h2/TJIsEK2fetQmWAdqHHBCbEjiiIqxWHbSUsTe1C5MGb2xrB7mPH6XetgbqsvmxeDYZJX9Z4ZtQvw=='
+)
+on conflict (email) do nothing;
+
+-- 4) Row Level Security: lock every table to service_role only.
 --    Our API routes use the service_role key so they bypass RLS;
 --    the anon key (used in the browser) cannot read or write anything.
 alter table public.codes enable row level security;
 alter table public.visit_logs enable row level security;
+alter table public.admin_users enable row level security;
 
 -- No policies = anon is denied. Service role bypasses RLS automatically.

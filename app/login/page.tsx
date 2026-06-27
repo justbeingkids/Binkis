@@ -18,6 +18,7 @@ function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
   const from = params.get("from") || "/";
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -30,11 +31,11 @@ function LoginInner() {
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Password incorrecto");
+        setError(data.error ?? "Correo o password incorrecto");
         return;
       }
       router.replace(from);
@@ -59,6 +60,16 @@ function LoginInner() {
           </div>
         </div>
         <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">
+          <Input
+            label="Correo"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="username"
+            disabled={loading}
+            placeholder="tu@correo.com"
+          />
           <Input
             label="Password"
             type="password"
