@@ -1,4 +1,4 @@
-# BinKis - Demo del Sistema de Validacion
+# BinKis - Demo del Sistema de Validacion  
 
 Demo del sistema de validacion de hologramas ganadores para la coleccion BinKis No.777.
 
