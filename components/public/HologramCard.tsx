@@ -7,10 +7,10 @@ interface HologramCardProps {
   collectionNumber: string;
 }
 
-// Position of the QR's white square inside public/binkis.png, as a percentage
-// of the artwork. The static QR in the art is a placeholder; we overlay the
-// real per-code QR on top of it so each piece scans to its own /v/<code>.
-const QR_BOX = { left: "36%", top: "51.6%", width: "29.4%", height: "29.8%" };
+// Position of the blank QR square inside public/binkis.png, as a percentage of
+// the artwork (564x615; the square is 182x182 px). We render the real per-code
+// QR into this slot so each piece scans to its own /v/<code>.
+const QR_BOX = { left: "37.77%", top: "52.52%", width: "32.27%", height: "29.59%" };
 
 export function HologramCard({ code, validationUrl }: HologramCardProps) {
   return (
