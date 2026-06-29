@@ -1,0 +1,151 @@
+"use client";
+
+import { useState } from "react";
+import { Card, CardHeader, CardTitle, CardDescription, CardBody } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+
+export function AccountSettings({ currentEmail }: { currentEmail: string }) {
+  const [step, setStep] = useState<"verify" | "edit">("verify");
+  const [curEmail, setCurEmail] = useState(currentEmail);
+  const [curPassword, setCurPassword] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  async function post(payload: Record<string, string>) {
+    const res = await fetch("/api/admin/account", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, data } as const;
+  }
+
+  async function handleVerify(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+    setLoading(true);
+    try {
+      const { ok, data } = await post({ currentEmail: curEmail, currentPassword: curPassword });
+      if (!ok) {
+        setError(data.error ?? "No se pudo verificar");
+        return;
+      }
+      setNewEmail(data.email ?? curEmail);
+      setNewPassword("");
+      setStep("edit");
+    } catch {
+      setError("Error de red");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+    setLoading(true);
+    try {
+      const { ok, data } = await post({
+        currentEmail: curEmail,
+        currentPassword: curPassword,
+        newEmail,
+        newPassword,
+      });
+      if (!ok) {
+        setError(data.error ?? "No se pudo guardar");
+        return;
+      }
+      if (data.email) setCurEmail(data.email);
+      setNewPassword("");
+      setSuccess("Cambios guardados correctamente.");
+    } catch {
+      setError("Error de red");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Mi cuenta</CardTitle>
+        <CardDescription>
+          {step === "verify"
+            ? "Confirma tu correo y contraseña actuales para poder editarlos."
+            : `Editando ${curEmail}. Deja un campo vacío para no cambiarlo.`}
+        </CardDescription>
+      </CardHeader>
+      <CardBody>
+        {step === "verify" ? (
+          <form onSubmit={handleVerify} className="flex max-w-sm flex-col gap-4">
+            <Input
+              label="Correo actual"
+              type="email"
+              value={curEmail}
+              onChange={(e) => setCurEmail(e.target.value)}
+              required
+              autoComplete="username"
+              disabled={loading}
+            />
+            <Input
+              label="Password actual"
+              type="password"
+              value={curPassword}
+              onChange={(e) => setCurPassword(e.target.value)}
+              error={error ?? undefined}
+              required
+              autoComplete="current-password"
+              disabled={loading}
+            />
+            <Button type="submit" loading={loading}>Continuar</Button>
+          </form>
+        ) : (
+          <form onSubmit={handleSave} className="flex max-w-sm flex-col gap-4">
+            <Input
+              label="Nuevo correo"
+              type="email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              disabled={loading}
+              autoComplete="off"
+            />
+            <Input
+              label="Nuevo password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              error={error ?? undefined}
+              hint="Déjalo vacío para mantener el actual"
+              disabled={loading}
+              autoComplete="new-password"
+            />
+            {success ? <p className="text-sm font-medium text-status-claimed">{success}</p> : null}
+            <div className="flex gap-2">
+              <Button type="submit" loading={loading}>Guardar cambios</Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={loading}
+                onClick={() => {
+                  setStep("verify");
+                  setCurPassword("");
+                  setError(null);
+                  setSuccess(null);
+                }}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        )}
+      </CardBody>
+    </Card>
+  );
+}

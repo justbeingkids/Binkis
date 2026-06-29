@@ -50,10 +50,13 @@ create table if not exists public.admin_users (
   id uuid primary key default gen_random_uuid(),
   email text unique not null,
   password_hash text not null,
+  disabled boolean not null default false,
   created_at timestamptz not null default now()
 );
 
 create index if not exists idx_admin_users_email on public.admin_users (email);
+-- For existing databases (table predates the column): add it if missing.
+alter table public.admin_users add column if not exists disabled boolean not null default false;
 
 -- Admins are created with `npm run seed-admin -- <email> <password>` or by
 -- inserting a row with a scrypt password_hash. No default seed is shipped on
@@ -68,12 +71,27 @@ create table if not exists public.login_attempts (
   last_failed_at timestamptz not null default now()
 );
 
--- 5) Row Level Security: lock every table to service_role only.
+-- 5) admin_audit_log: record of who created/changed/disabled admin accounts.
+--    The super admin views this; every admin-account change appends a row.
+create table if not exists public.admin_audit_log (
+  id uuid primary key default gen_random_uuid(),
+  ts timestamptz not null default now(),
+  actor_email text,
+  action text not null,
+  target_email text,
+  ip text,
+  detail text
+);
+
+create index if not exists idx_admin_audit_log_ts on public.admin_audit_log (ts desc);
+
+-- 6) Row Level Security: lock every table to service_role only.
 --    Our API routes use the service_role key so they bypass RLS;
 --    the anon key (used in the browser) cannot read or write anything.
 alter table public.codes enable row level security;
 alter table public.visit_logs enable row level security;
 alter table public.admin_users enable row level security;
 alter table public.login_attempts enable row level security;
+alter table public.admin_audit_log enable row level security;
 
 -- No policies = anon is denied. Service role bypasses RLS automatically.

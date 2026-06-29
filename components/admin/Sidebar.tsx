@@ -9,6 +9,7 @@ import {
   Trophy,
   ShieldCheck,
   Dices,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -20,6 +21,7 @@ interface NavItem {
 
 const overviewItems: NavItem[] = [
   { href: "/", label: "Resumen", icon: LayoutDashboard },
+  { href: "/account", label: "Mi cuenta", icon: UserCog },
 ];
 
 const codesItems: NavItem[] = [

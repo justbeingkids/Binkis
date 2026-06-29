@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Trophy,
   Dices,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -23,6 +24,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: "/", label: "Resumen", icon: LayoutDashboard },
+  { href: "/account", label: "Mi cuenta", icon: UserCog },
   { href: "/codes", label: "Codigos", icon: Hash },
   { href: "/generate", label: "Generar", icon: PlusSquare },
   { href: "/lottery", label: "Sorteo", icon: Dices },

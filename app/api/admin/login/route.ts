@@ -63,6 +63,13 @@ export async function POST(request: Request) {
 
     await clearAttempts(key);
 
+    if (user.disabled) {
+      return NextResponse.json(
+        { error: "Esta cuenta esta deshabilitada. Contacta al administrador." },
+        { status: 403 }
+      );
+    }
+
     const env = getServerEnv();
     const token = await signSession(
       { sub: user.email, exp: Date.now() + SESSION_TTL_MS },
