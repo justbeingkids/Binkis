@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Hash,
@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Dices,
   UserCog,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -59,9 +60,19 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
 
   function isActive(href: string) {
     return href === "/" ? pathname === "/" : pathname.startsWith(href);
+  }
+
+  async function handleLogout() {
+    try {
+      await fetch("/api/admin/login", { method: "DELETE" });
+    } finally {
+      router.push("/login");
+      router.refresh();
+    }
   }
 
   return (
@@ -119,6 +130,14 @@ export function Sidebar() {
             <span className="text-[11px] font-medium text-ink-700">Limitada</span>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="mt-2 flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-ink-500 transition-colors hover:bg-status-invalidBg hover:text-status-invalid"
+        >
+          <LogOut size={15} strokeWidth={2} />
+          <span>Cerrar sesión</span>
+        </button>
       </div>
     </aside>
   );

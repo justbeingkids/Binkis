@@ -80,10 +80,15 @@ create table if not exists public.admin_audit_log (
   action text not null,
   target_email text,
   ip text,
+  country text,
+  city text,
   detail text
 );
 
 create index if not exists idx_admin_audit_log_ts on public.admin_audit_log (ts desc);
+-- For existing databases (table predates the geo columns): add them if missing.
+alter table public.admin_audit_log add column if not exists country text;
+alter table public.admin_audit_log add column if not exists city text;
 
 -- 6) Row Level Security: lock every table to service_role only.
 --    Our API routes use the service_role key so they bypass RLS;

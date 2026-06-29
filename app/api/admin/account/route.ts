@@ -6,7 +6,7 @@ import { findAdminUser, updateAdminUserEmail, updateAdminUserPassword } from "@/
 import { verifyPassword, hashPassword } from "@/lib/password";
 import { signSession, SESSION_TTL_MS } from "@/lib/session";
 import { logAdminEvent } from "@/lib/supabase/audit-log";
-import { clientIp } from "@/lib/client-ip";
+import { extractGeo } from "@/lib/geo";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, verified: true, email: user.email });
   }
 
-  const ip = clientIp(request);
+  const geo = extractGeo(request);
   let finalEmail = user.email;
 
   if (newEmail && newEmail.toLowerCase() !== user.email.toLowerCase()) {
@@ -79,7 +79,9 @@ export async function POST(request: Request) {
       actorEmail: user.email,
       action: "email_changed",
       targetEmail: finalEmail,
-      ip,
+      ip: geo.ip,
+      country: geo.country,
+      city: geo.city,
       detail: `from ${user.email}`,
     });
   }
@@ -89,7 +91,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "El nuevo password debe tener al menos 4 caracteres" }, { status: 400 });
     }
     await updateAdminUserPassword(user.id, hashPassword(newPassword));
-    await logAdminEvent({ actorEmail: user.email, action: "password_changed", targetEmail: finalEmail, ip });
+    await logAdminEvent({
+      actorEmail: user.email,
+      action: "password_changed",
+      targetEmail: finalEmail,
+      ip: geo.ip,
+      country: geo.country,
+      city: geo.city,
+    });
   }
 
   const res = NextResponse.json({ ok: true, email: finalEmail });

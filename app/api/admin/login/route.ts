@@ -6,6 +6,8 @@ import { findAdminUser } from "@/lib/supabase/admin-users";
 import { verifyPassword } from "@/lib/password";
 import { signSession, SESSION_TTL_MS } from "@/lib/session";
 import { getLockRemaining, recordFailure, clearAttempts } from "@/lib/supabase/login-attempts";
+import { logAdminEvent } from "@/lib/supabase/audit-log";
+import { extractGeo } from "@/lib/geo";
 
 export const dynamic = "force-dynamic";
 
@@ -14,14 +16,9 @@ const bodySchema = z.object({
   password: z.string().min(1, "Password requerido"),
 });
 
-function clientIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  const fromForwarded = forwarded ? forwarded.split(",")[0]?.trim() : null;
-  return fromForwarded || request.headers.get("x-real-ip") || "unknown";
-}
-
 export async function POST(request: Request) {
-  const key = clientIp(request);
+  const geo = extractGeo(request);
+  const key = geo.ip;
 
   // Escalating cooldown after failed attempts: 5s (1st), 10s (2nd), 30s (3rd+).
   const locked = await getLockRemaining(key);
@@ -48,11 +45,24 @@ export async function POST(request: Request) {
   }
 
   const { email, password } = parsed.data;
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const logLogin = (action: "login_success" | "login_failed", detail?: string) =>
+    logAdminEvent({
+      actorEmail: normalizedEmail,
+      action,
+      targetEmail: normalizedEmail,
+      ip: geo.ip,
+      country: geo.country,
+      city: geo.city,
+      detail,
+    });
 
   try {
     const user = await findAdminUser(email);
     if (!user || !verifyPassword(password, user.passwordHash)) {
       const wait = await recordFailure(key);
+      await logLogin("login_failed", user ? "password incorrecto" : "correo no existe");
       return NextResponse.json(
         { error: "Correo o password incorrecto", retryAfter: wait },
         wait > 0
@@ -64,6 +74,7 @@ export async function POST(request: Request) {
     await clearAttempts(key);
 
     if (user.disabled) {
+      await logLogin("login_failed", "cuenta deshabilitada");
       return NextResponse.json(
         { error: "Esta cuenta esta deshabilitada. Contacta al administrador." },
         { status: 403 }
@@ -75,6 +86,8 @@ export async function POST(request: Request) {
       { sub: user.email, exp: Date.now() + SESSION_TTL_MS },
       env.SESSION_SECRET
     );
+
+    await logLogin("login_success");
 
     const res = NextResponse.json({ ok: true, email: user.email });
     res.cookies.set(ADMIN_COOKIE_NAME, token, adminCookieOptions());

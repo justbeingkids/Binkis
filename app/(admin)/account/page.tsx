@@ -23,7 +23,7 @@ export default async function AccountPage() {
         <AccountSettings currentEmail={email} />
         {isSuper ? (
           <>
-            <UsersManager />
+            <UsersManager currentEmail={email} />
             <AuditLog />
           </>
         ) : null}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Menu,
   X,
@@ -13,6 +13,7 @@ import {
   Trophy,
   Dices,
   UserCog,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -35,6 +36,16 @@ const navItems: NavItem[] = [
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleLogout() {
+    try {
+      await fetch("/api/admin/login", { method: "DELETE" });
+    } finally {
+      router.push("/login");
+      router.refresh();
+    }
+  }
 
   useEffect(() => {
     setOpen(false);
@@ -121,9 +132,19 @@ export function MobileNav() {
                 );
               })}
             </div>
-            <div className="border-t border-ink-200 px-4 py-3">
-              <p className="text-xs font-semibold text-ink-900">Coleccion 777</p>
-              <p className="text-[10px] uppercase tracking-wider text-ink-400">Edicion Limitada</p>
+            <div className="border-t border-ink-200 p-3">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-status-invalid hover:bg-status-invalidBg"
+              >
+                <LogOut size={16} strokeWidth={2} />
+                <span>Cerrar sesión</span>
+              </button>
+              <div className="px-3 pt-2">
+                <p className="text-xs font-semibold text-ink-900">Coleccion 777</p>
+                <p className="text-[10px] uppercase tracking-wider text-ink-400">Edicion Limitada</p>
+              </div>
             </div>
           </nav>
         </div>

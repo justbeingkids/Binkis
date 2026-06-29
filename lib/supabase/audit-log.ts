@@ -1,6 +1,8 @@
 import { getAdminClient } from "./client";
 
 export type AuditAction =
+  | "login_success"
+  | "login_failed"
   | "created"
   | "email_changed"
   | "password_changed"
@@ -14,15 +16,19 @@ export interface AuditEntry {
   action: string;
   targetEmail: string | null;
   ip: string | null;
+  country: string | null;
+  city: string | null;
   detail: string | null;
 }
 
-/** Best-effort: never blocks the action if logging fails. */
+/** Best-effort: never blocks the action if logging fails (e.g. table missing). */
 export async function logAdminEvent(entry: {
   actorEmail: string;
   action: AuditAction;
   targetEmail: string;
   ip?: string;
+  country?: string;
+  city?: string;
   detail?: string;
 }): Promise<void> {
   try {
@@ -32,6 +38,8 @@ export async function logAdminEvent(entry: {
       action: entry.action,
       target_email: entry.targetEmail || null,
       ip: entry.ip || null,
+      country: entry.country || null,
+      city: entry.city || null,
       detail: entry.detail || null,
     });
     if (error) console.error("logAdminEvent failed:", error.message);
@@ -40,7 +48,7 @@ export async function logAdminEvent(entry: {
   }
 }
 
-export async function listAuditLog(limit = 200): Promise<AuditEntry[]> {
+export async function listAuditLog(limit = 300): Promise<AuditEntry[]> {
   const supabase = getAdminClient();
   const { data, error } = await supabase
     .from("admin_audit_log")
@@ -57,6 +65,8 @@ export async function listAuditLog(limit = 200): Promise<AuditEntry[]> {
       action: String(row.action),
       targetEmail: (row.target_email as string | null) ?? null,
       ip: (row.ip as string | null) ?? null,
+      country: (row.country as string | null) ?? null,
+      city: (row.city as string | null) ?? null,
       detail: (row.detail as string | null) ?? null,
     };
   });

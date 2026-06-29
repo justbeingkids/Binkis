@@ -15,7 +15,9 @@ interface UserRow {
   createdAt: string | null;
 }
 
-export function UsersManager() {
+export function UsersManager({ currentEmail }: { currentEmail: string }) {
+  const me = currentEmail.trim().toLowerCase();
+
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -145,7 +147,9 @@ export function UsersManager() {
               disabled={creating}
             />
           </div>
-          <Button type="submit" loading={creating}>Crear</Button>
+          <Button type="submit" loading={creating} className="w-full sm:w-auto">
+            Crear
+          </Button>
         </form>
         {createMsg ? <p className="mb-4 text-sm text-ink-600">{createMsg}</p> : null}
         {error ? <p className="mb-4 text-sm text-status-invalid">{error}</p> : null}
@@ -157,74 +161,88 @@ export function UsersManager() {
             <THead>
               <TH>Correo</TH>
               <TH>Estado</TH>
-              <TH>Creado</TH>
+              <TH className="hidden sm:table-cell">Creado</TH>
               <TH className="text-right">Acciones</TH>
             </THead>
             <TBody>
-              {users.map((u, idx) => (
-                <TR key={u.id} striped={idx % 2 === 1}>
-                  <TD className="font-medium text-ink-900">
-                    {editingId === u.id ? (
-                      <div className="flex flex-col gap-2">
-                        <Input
-                          value={editEmail}
-                          onChange={(e) => setEditEmail(e.target.value)}
-                          placeholder="correo"
-                        />
-                        <Input
-                          value={editPassword}
-                          onChange={(e) => setEditPassword(e.target.value)}
-                          placeholder="nuevo password (opcional)"
-                        />
-                      </div>
-                    ) : (
-                      u.email
-                    )}
-                  </TD>
-                  <TD>
-                    {u.disabled ? (
-                      <Badge tone="danger">Deshabilitado</Badge>
-                    ) : (
-                      <Badge tone="success">Activo</Badge>
-                    )}
-                  </TD>
-                  <TD className="text-ink-500 tabular-nums">{formatDateTime(u.createdAt)}</TD>
-                  <TD className="text-right">
-                    {editingId === u.id ? (
-                      <div className="flex justify-end gap-2">
-                        <Button size="sm" loading={busyId === u.id} onClick={() => handleSaveEdit(u.id)}>
-                          Guardar
-                        </Button>
-                        <Button size="sm" variant="secondary" onClick={() => setEditingId(null)}>
-                          Cancelar
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => {
-                            setEditingId(u.id);
-                            setEditEmail(u.email);
-                            setEditPassword("");
-                          }}
-                        >
-                          Editar
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={u.disabled ? "secondary" : "danger"}
-                          loading={busyId === u.id}
-                          onClick={() => patch(u.id, { disabled: !u.disabled })}
-                        >
-                          {u.disabled ? "Habilitar" : "Deshabilitar"}
-                        </Button>
-                      </div>
-                    )}
-                  </TD>
-                </TR>
-              ))}
+              {users.map((u, idx) => {
+                const isMe = u.email.toLowerCase() === me;
+                return (
+                  <TR key={u.id} striped={idx % 2 === 1}>
+                    <TD className="font-medium text-ink-900">
+                      {editingId === u.id ? (
+                        <div className="flex min-w-[12rem] flex-col gap-2">
+                          <Input
+                            value={editEmail}
+                            onChange={(e) => setEditEmail(e.target.value)}
+                            placeholder="correo"
+                          />
+                          <Input
+                            value={editPassword}
+                            onChange={(e) => setEditPassword(e.target.value)}
+                            placeholder="nuevo password (opcional)"
+                          />
+                        </div>
+                      ) : (
+                        <span className="break-all">
+                          {u.email}
+                          {isMe ? (
+                            <span className="ml-2 rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase text-ink-500">
+                              Tú
+                            </span>
+                          ) : null}
+                        </span>
+                      )}
+                    </TD>
+                    <TD>
+                      {u.disabled ? (
+                        <Badge tone="danger">Deshabilitado</Badge>
+                      ) : (
+                        <Badge tone="success">Activo</Badge>
+                      )}
+                    </TD>
+                    <TD className="hidden text-ink-500 tabular-nums sm:table-cell">
+                      {formatDateTime(u.createdAt)}
+                    </TD>
+                    <TD className="text-right">
+                      {isMe ? (
+                        <span className="text-xs text-ink-400">Tu cuenta · usa “Mi cuenta”</span>
+                      ) : editingId === u.id ? (
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <Button size="sm" loading={busyId === u.id} onClick={() => handleSaveEdit(u.id)}>
+                            Guardar
+                          </Button>
+                          <Button size="sm" variant="secondary" onClick={() => setEditingId(null)}>
+                            Cancelar
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setEditingId(u.id);
+                              setEditEmail(u.email);
+                              setEditPassword("");
+                            }}
+                          >
+                            Editar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={u.disabled ? "secondary" : "danger"}
+                            loading={busyId === u.id}
+                            onClick={() => patch(u.id, { disabled: !u.disabled })}
+                          >
+                            {u.disabled ? "Habilitar" : "Deshabilitar"}
+                          </Button>
+                        </div>
+                      )}
+                    </TD>
+                  </TR>
+                );
+              })}
             </TBody>
           </Table>
         )}

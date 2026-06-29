@@ -22,11 +22,13 @@ export async function isAdminAuthed(): Promise<boolean> {
 }
 
 export function adminCookieOptions() {
+  // No maxAge/expires => a session cookie: the browser deletes it on close.
+  // The token itself also carries a 1-hour expiry (SESSION_TTL_MS), so the
+  // session ends at browser-close OR 1 hour, whichever comes first.
   return {
     httpOnly: true,
     sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60, // 1 hour (matches SESSION_TTL_MS)
   };
 }

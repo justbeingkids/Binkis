@@ -9,8 +9,8 @@ import {
   setAdminUserDisabled,
 } from "@/lib/supabase/admin-users";
 import { hashPassword } from "@/lib/password";
-import { logAdminEvent } from "@/lib/supabase/audit-log";
-import { clientIp } from "@/lib/client-ip";
+import { logAdminEvent, type AuditAction } from "@/lib/supabase/audit-log";
+import { extractGeo } from "@/lib/geo";
 
 export const dynamic = "force-dynamic";
 
@@ -46,8 +46,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "No se puede deshabilitar al super admin" }, { status: 400 });
   }
 
-  const ip = clientIp(request);
+  const geo = extractGeo(request);
   const actor = session.sub;
+  const log = (action: AuditAction, targetEmail: string, detail?: string) =>
+    logAdminEvent({
+      actorEmail: actor,
+      action,
+      targetEmail,
+      ip: geo.ip,
+      country: geo.country,
+      city: geo.city,
+      detail,
+    });
 
   if (typeof parsed.data.email === "string" && parsed.data.email.toLowerCase() !== target.email.toLowerCase()) {
     const r = await updateAdminUserEmail(id, parsed.data.email);
@@ -57,28 +67,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         { status: r.reason === "exists" ? 409 : 500 }
       );
     }
-    await logAdminEvent({
-      actorEmail: actor,
-      action: "email_changed",
-      targetEmail: parsed.data.email.trim().toLowerCase(),
-      ip,
-      detail: `from ${target.email}`,
-    });
+    await log("email_changed", parsed.data.email.trim().toLowerCase(), `from ${target.email}`);
   }
 
   if (parsed.data.password) {
     await updateAdminUserPassword(id, hashPassword(parsed.data.password));
-    await logAdminEvent({ actorEmail: actor, action: "password_changed", targetEmail: target.email, ip });
+    await log("password_changed", target.email);
   }
 
   if (typeof parsed.data.disabled === "boolean" && parsed.data.disabled !== target.disabled) {
     await setAdminUserDisabled(id, parsed.data.disabled);
-    await logAdminEvent({
-      actorEmail: actor,
-      action: parsed.data.disabled ? "disabled" : "enabled",
-      targetEmail: target.email,
-      ip,
-    });
+    await log(parsed.data.disabled ? "disabled" : "enabled", target.email);
   }
 
   return NextResponse.json({ ok: true });

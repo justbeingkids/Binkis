@@ -5,7 +5,7 @@ import { isSuperAdmin } from "@/lib/admin-roles";
 import { listAdminUsers, createAdminUser } from "@/lib/supabase/admin-users";
 import { hashPassword } from "@/lib/password";
 import { logAdminEvent } from "@/lib/supabase/audit-log";
-import { clientIp } from "@/lib/client-ip";
+import { extractGeo } from "@/lib/geo";
 
 export const dynamic = "force-dynamic";
 
@@ -48,11 +48,14 @@ export async function POST(request: Request) {
     );
   }
 
+  const geo = extractGeo(request);
   await logAdminEvent({
     actorEmail: session.sub,
     action: "created",
     targetEmail: email.trim().toLowerCase(),
-    ip: clientIp(request),
+    ip: geo.ip,
+    country: geo.country,
+    city: geo.city,
   });
   return NextResponse.json({ ok: true });
 }

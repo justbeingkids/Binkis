@@ -13,9 +13,13 @@ interface AuditRow {
   action: string;
   targetEmail: string | null;
   ip: string | null;
+  country: string | null;
+  city: string | null;
 }
 
 const ACTION_LABELS: Record<string, string> = {
+  login_success: "Login exitoso",
+  login_failed: "Login fallido",
   created: "Creado",
   email_changed: "Correo cambiado",
   password_changed: "Password cambiado",
@@ -24,9 +28,15 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 function tone(action: string): "success" | "warning" | "danger" | "neutral" {
-  if (action === "created" || action === "enabled") return "success";
-  if (action === "disabled") return "danger";
-  return "warning";
+  if (action === "login_success" || action === "created" || action === "enabled") return "success";
+  if (action === "login_failed" || action === "disabled") return "danger";
+  if (action === "email_changed" || action === "password_changed") return "warning";
+  return "neutral";
+}
+
+function location(country: string | null, city: string | null): string {
+  const parts = [city, country].filter((p): p is string => !!p && p !== "Unknown");
+  return parts.length ? parts.join(", ") : "-";
 }
 
 export function AuditLog() {
@@ -61,7 +71,9 @@ export function AuditLog() {
     <Card>
       <CardHeader>
         <CardTitle>Registro de actividad</CardTitle>
-        <CardDescription>Quién creó, cambió o deshabilitó cada cuenta admin.</CardDescription>
+        <CardDescription>
+          Inicios de sesión (éxito y fallo) y cambios de cuenta, con ubicación e IP. Solo visible para el super admin.
+        </CardDescription>
       </CardHeader>
       <CardBody>
         {loading ? (
@@ -76,19 +88,21 @@ export function AuditLog() {
               <TH>Fecha</TH>
               <TH>Acción</TH>
               <TH>Cuenta</TH>
-              <TH>Realizado por</TH>
-              <TH>IP</TH>
+              <TH>Ubicación</TH>
+              <TH className="hidden sm:table-cell">IP</TH>
+              <TH className="hidden md:table-cell">Por</TH>
             </THead>
             <TBody>
               {rows.map((r, idx) => (
                 <TR key={r.id} striped={idx % 2 === 1}>
-                  <TD className="text-ink-500 tabular-nums">{formatDateTime(r.ts)}</TD>
+                  <TD className="whitespace-nowrap text-ink-500 tabular-nums">{formatDateTime(r.ts)}</TD>
                   <TD>
                     <Badge tone={tone(r.action)}>{ACTION_LABELS[r.action] ?? r.action}</Badge>
                   </TD>
-                  <TD className="text-ink-900">{r.targetEmail ?? "-"}</TD>
-                  <TD className="text-ink-500">{r.actorEmail ?? "-"}</TD>
-                  <TD className="text-ink-400 tabular-nums">{r.ip ?? "-"}</TD>
+                  <TD className="break-all text-ink-900">{r.targetEmail ?? "-"}</TD>
+                  <TD className="text-ink-600">{location(r.country, r.city)}</TD>
+                  <TD className="hidden text-ink-400 tabular-nums sm:table-cell">{r.ip ?? "-"}</TD>
+                  <TD className="hidden break-all text-ink-500 md:table-cell">{r.actorEmail ?? "-"}</TD>
                 </TR>
               ))}
             </TBody>

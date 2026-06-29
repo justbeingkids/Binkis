@@ -127,12 +127,15 @@ export function AccountSettings({ currentEmail }: { currentEmail: string }) {
               autoComplete="new-password"
             />
             {success ? <p className="text-sm font-medium text-status-claimed">{success}</p> : null}
-            <div className="flex gap-2">
-              <Button type="submit" loading={loading}>Guardar cambios</Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button type="submit" loading={loading} className="w-full sm:w-auto">
+                Guardar cambios
+              </Button>
               <Button
                 type="button"
                 variant="secondary"
                 disabled={loading}
+                className="w-full sm:w-auto"
                 onClick={() => {
                   setStep("verify");
                   setCurPassword("");
