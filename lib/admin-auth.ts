@@ -27,6 +27,6 @@ export function adminCookieOptions() {
     sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: 60 * 60, // 1 hour (matches SESSION_TTL_MS)
   };
 }

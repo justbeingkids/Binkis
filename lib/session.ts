@@ -41,8 +41,8 @@ async function importKey(secret: string): Promise<CryptoKey> {
   );
 }
 
-/** Default session lifetime: 7 days. */
-export const SESSION_TTL_MS = 60 * 60 * 24 * 7 * 1000;
+/** Default session lifetime: 1 hour. */
+export const SESSION_TTL_MS = 60 * 60 * 1000;
 
 export async function signSession(payload: SessionPayload, secret: string): Promise<string> {
   const body = bytesToBase64Url(encoder.encode(JSON.stringify(payload)));
