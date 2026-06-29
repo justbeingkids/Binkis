@@ -1,19 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, XCircle, AlertTriangle, Shuffle, Search } from "lucide-react";
+import { CheckCircle2, XCircle, AlertTriangle, Shuffle, Search, Database } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card, CardHeader, CardTitle, CardDescription, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { formatDateTime } from "@/lib/format";
 
-type CheckState = "valid" | "claimed" | "invalid";
+type CheckState =
+  | "winner_available"
+  | "claimed"
+  | "exists_not_winner"
+  | "not_found"
+  | "invalid_format";
 
 interface CheckResult {
   state: CheckState;
   code: string;
   claimedAt?: string | null;
+  generatedAt?: string | null;
   source: "manual" | "random";
 }
 
@@ -47,7 +53,7 @@ export function CodeChecker() {
     setLoading(true);
 
     try {
-      const res = await fetch(`/api/codes/validate?code=${encodeURIComponent(target)}`);
+      const res = await fetch(`/api/codes/lookup?code=${encodeURIComponent(target)}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Error verificando");
@@ -57,6 +63,7 @@ export function CodeChecker() {
         state: data.state as CheckState,
         code: target,
         claimedAt: data.claimedAt ?? null,
+        generatedAt: data.generatedAt ?? null,
         source,
       });
     } catch (err) {
@@ -78,7 +85,8 @@ export function CodeChecker() {
         <CardHeader>
           <CardTitle>Verificar codigo</CardTitle>
           <CardDescription>
-            Ingresa un codigo para confirmar si es ganador, ya fue reclamado o no existe en el sistema.
+            Ingresa un codigo para ver su estado real en la base de datos: si existe, si es ganador,
+            si ya fue reclamado o si no existe.
           </CardDescription>
         </CardHeader>
         <CardBody>
@@ -120,8 +128,7 @@ export function CodeChecker() {
             </div>
             <p className="text-xs text-ink-400">
               &quot;Generar y verificar&quot; crea un codigo al azar dentro del mismo formato y lo busca en
-              la base de datos. Sirve para demostrar que solo los codigos cargados realmente cuentan
-              como ganadores.
+              la base de datos. Sirve para demostrar que solo los codigos cargados realmente existen.
             </p>
           </form>
         </CardBody>
@@ -133,8 +140,8 @@ export function CodeChecker() {
           <CardDescription>
             {result
               ? result.source === "random"
-                ? "Codigo aleatorio verificado contra el sheet"
-                : "Codigo ingresado manualmente verificado contra el sheet"
+                ? "Codigo aleatorio verificado contra Supabase"
+                : "Codigo ingresado manualmente verificado contra Supabase"
               : "Aun no se ha verificado ningun codigo en esta sesion."}
           </CardDescription>
         </CardHeader>
@@ -152,7 +159,9 @@ export function CodeChecker() {
 }
 
 function ResultPanel({ result }: { result: CheckResult }) {
-  if (result.state === "valid") {
+  const sourceLabel = result.source === "random" ? "Aleatorio" : "Manual";
+
+  if (result.state === "winner_available") {
     return (
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-3 rounded-md border border-status-claimed/20 bg-status-claimedBg/40 px-4 py-3">
@@ -160,14 +169,15 @@ function ResultPanel({ result }: { result: CheckResult }) {
           <div>
             <p className="text-sm font-semibold text-status-claimed">Codigo GANADOR</p>
             <p className="text-xs text-ink-700">
-              Este codigo existe en el sistema y todavia no ha sido reclamado.
+              Existe en el sistema, es ganador y todavia no ha sido reclamado.
             </p>
           </div>
         </div>
-        <CodeDetail code={result.code} sourceLabel={result.source === "random" ? "Aleatorio" : "Manual"} />
+        <CodeDetail code={result.code} sourceLabel={sourceLabel} generatedAt={result.generatedAt} />
       </div>
     );
   }
+
   if (result.state === "claimed") {
     return (
       <div className="flex flex-col gap-4">
@@ -180,29 +190,61 @@ function ResultPanel({ result }: { result: CheckResult }) {
             </p>
           </div>
         </div>
-        <CodeDetail code={result.code} sourceLabel={result.source === "random" ? "Aleatorio" : "Manual"} />
+        <CodeDetail code={result.code} sourceLabel={sourceLabel} generatedAt={result.generatedAt} />
       </div>
     );
   }
+
+  if (result.state === "exists_not_winner") {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-3 rounded-md border border-accent/20 bg-accent/5 px-4 py-3">
+          <Database size={22} className="text-accent" strokeWidth={2} />
+          <div>
+            <p className="text-sm font-semibold text-accent">Existe en la base — Disponible</p>
+            <p className="text-xs text-ink-700">
+              El codigo si esta cargado en Supabase, pero todavia no es ganador. Corre el sorteo
+              (Loteria) para marcar los codigos ganadores.
+            </p>
+          </div>
+        </div>
+        <CodeDetail code={result.code} sourceLabel={sourceLabel} generatedAt={result.generatedAt} />
+      </div>
+    );
+  }
+
+  // not_found or invalid_format
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3 rounded-md border border-status-invalid/20 bg-status-invalidBg/60 px-4 py-3">
         <XCircle size={22} className="text-status-invalid" strokeWidth={2} />
         <div>
-          <p className="text-sm font-semibold text-status-invalid">No es codigo ganador</p>
+          <p className="text-sm font-semibold text-status-invalid">
+            {result.state === "invalid_format" ? "Formato invalido" : "No existe en el sistema"}
+          </p>
           <p className="text-xs text-ink-700">
-            {result.source === "random"
-              ? "El codigo aleatorio no coincide con ninguno cargado. Justamente esto demuestra que solo los codigos en la base de datos son validos."
-              : "Este codigo no existe en el sistema. No puede reclamar premio."}
+            {result.state === "invalid_format"
+              ? "El codigo no respeta el formato BNK-XXXX-XXXX."
+              : result.source === "random"
+              ? "El codigo aleatorio no coincide con ninguno cargado. Justamente esto demuestra que solo los codigos en la base de datos existen."
+              : "Este codigo no esta en la base de datos."}
           </p>
         </div>
       </div>
-      <CodeDetail code={result.code} sourceLabel={result.source === "random" ? "Aleatorio" : "Manual"} />
+      <CodeDetail code={result.code} sourceLabel={sourceLabel} />
     </div>
   );
 }
 
-function CodeDetail({ code, sourceLabel }: { code: string; sourceLabel: string }) {
+function CodeDetail({
+  code,
+  sourceLabel,
+  generatedAt,
+}: {
+  code: string;
+  sourceLabel: string;
+  generatedAt?: string | null;
+}) {
   return (
     <div className="grid grid-cols-2 gap-3">
       <div className="rounded-md border border-ink-100 bg-surface-muted px-3 py-2">
@@ -210,9 +252,15 @@ function CodeDetail({ code, sourceLabel }: { code: string; sourceLabel: string }
         <p className="mt-1 font-mono text-sm font-semibold tracking-wider text-ink-900">{code}</p>
       </div>
       <div className="rounded-md border border-ink-100 bg-surface-muted px-3 py-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-400">Origen</p>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-400">
+          {generatedAt ? "Generado" : "Origen"}
+        </p>
         <p className="mt-1 text-sm text-ink-900">
-          <Badge tone={sourceLabel === "Aleatorio" ? "info" : "neutral"}>{sourceLabel}</Badge>
+          {generatedAt ? (
+            <span className="tabular-nums">{formatDateTime(generatedAt)}</span>
+          ) : (
+            <Badge tone={sourceLabel === "Aleatorio" ? "info" : "neutral"}>{sourceLabel}</Badge>
+          )}
         </p>
       </div>
     </div>
