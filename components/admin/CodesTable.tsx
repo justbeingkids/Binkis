@@ -149,8 +149,10 @@ export function CodesTable({ codes, showWinner = false, paginated = true }: Code
             <TD>
               {c.claimed ? (
                 <Badge tone="success">Reclamado</Badge>
+              ) : c.isWinner ? (
+                <Badge tone="warning">Ganador</Badge>
               ) : (
-                <Badge tone="neutral">Disponible</Badge>
+                <Badge tone="neutral">No ganador</Badge>
               )}
             </TD>
             <TD className="text-ink-500 tabular-nums">{formatDateTime(c.claimedAt)}</TD>

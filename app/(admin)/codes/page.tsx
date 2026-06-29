@@ -23,13 +23,13 @@ export default async function CodesPage({ searchParams }: PageProps) {
   const codes = await getAllCodes();
   const counts = {
     all: codes.length,
-    winners: codes.filter((c) => c.claimed).length,
-    available: codes.filter((c) => !c.claimed).length,
+    winners: codes.filter((c) => c.isWinner).length,
+    available: codes.filter((c) => c.isWinner && !c.claimed).length,
   } satisfies Record<Status, number>;
 
   const filtered = codes.filter((c) => {
-    if (filter === "winners") return c.claimed;
-    if (filter === "available") return !c.claimed;
+    if (filter === "winners") return c.isWinner;
+    if (filter === "available") return c.isWinner && !c.claimed;
     return true;
   });
   const sorted = [...filtered].sort((a, b) => (b.generatedAt > a.generatedAt ? 1 : -1));
@@ -41,7 +41,7 @@ export default async function CodesPage({ searchParams }: PageProps) {
     <>
       <Topbar
         title="Codigos"
-        description={`${formatNumber(sorted.length)} ${filterLabel} de ${formatNumber(codes.length)} en el sheet`}
+        description={`${formatNumber(sorted.length)} ${filterLabel} de ${formatNumber(codes.length)} en la base`}
         action={
           <>
             <ExportButton defaultScope={exportDefault} disabled={codes.length === 0} label="Exportar" />
