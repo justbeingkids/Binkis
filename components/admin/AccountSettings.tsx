@@ -11,6 +11,7 @@ export function AccountSettings({ currentEmail }: { currentEmail: string }) {
   const [curPassword, setCurPassword] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -38,6 +39,7 @@ export function AccountSettings({ currentEmail }: { currentEmail: string }) {
       }
       setNewEmail(data.email ?? curEmail);
       setNewPassword("");
+      setConfirmPassword("");
       setStep("edit");
     } catch {
       setError("Error de red");
@@ -50,6 +52,10 @@ export function AccountSettings({ currentEmail }: { currentEmail: string }) {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    if (newPassword && newPassword !== confirmPassword) {
+      setError("Las contraseñas no coinciden");
+      return;
+    }
     setLoading(true);
     try {
       const { ok, data } = await post({
@@ -64,6 +70,7 @@ export function AccountSettings({ currentEmail }: { currentEmail: string }) {
       }
       if (data.email) setCurEmail(data.email);
       setNewPassword("");
+      setConfirmPassword("");
       setSuccess("Cambios guardados correctamente.");
     } catch {
       setError("Error de red");
@@ -121,8 +128,16 @@ export function AccountSettings({ currentEmail }: { currentEmail: string }) {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              error={error ?? undefined}
               hint="Déjalo vacío para mantener el actual"
+              disabled={loading}
+              autoComplete="new-password"
+            />
+            <Input
+              label="Confirmar nuevo password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              error={error ?? undefined}
               disabled={loading}
               autoComplete="new-password"
             />
@@ -139,6 +154,7 @@ export function AccountSettings({ currentEmail }: { currentEmail: string }) {
                 onClick={() => {
                   setStep("verify");
                   setCurPassword("");
+                  setConfirmPassword("");
                   setError(null);
                   setSuccess(null);
                 }}
