@@ -55,21 +55,25 @@ create table if not exists public.admin_users (
 
 create index if not exists idx_admin_users_email on public.admin_users (email);
 
--- Seed the initial admin: test@gmail.com / test
--- (scrypt hash of "test"; rotate this in production via `npm run seed-admin`).
--- Idempotent: re-running schema.sql will not duplicate or overwrite the user.
-insert into public.admin_users (email, password_hash)
-values (
-  'test@gmail.com',
-  'scrypt$16384$8$1$2p6QQOBpWvv9iG3jMMgtbw==$7aN2SbJ1h2/TJIsEK2fetQmWAdqHHBCbEjiiIqxWHbSUsTe1C5MGb2xrB7mPH6XetgbqsvmxeDYZJX9Z4ZtQvw=='
-)
-on conflict (email) do nothing;
+-- Admins are created with `npm run seed-admin -- <email> <password>` or by
+-- inserting a row with a scrypt password_hash. No default seed is shipped on
+-- purpose — never bake a known public credential into the schema.
 
--- 4) Row Level Security: lock every table to service_role only.
+-- 4) login_attempts: per-IP failed-login throttle.
+--    Cooldown after consecutive failures: 5s (1st), 10s (2nd), 30s (3rd+).
+--    The login route reads/writes this and clears the row on success.
+create table if not exists public.login_attempts (
+  id text primary key,
+  fail_count integer not null default 0,
+  last_failed_at timestamptz not null default now()
+);
+
+-- 5) Row Level Security: lock every table to service_role only.
 --    Our API routes use the service_role key so they bypass RLS;
 --    the anon key (used in the browser) cannot read or write anything.
 alter table public.codes enable row level security;
 alter table public.visit_logs enable row level security;
 alter table public.admin_users enable row level security;
+alter table public.login_attempts enable row level security;
 
 -- No policies = anon is denied. Service role bypasses RLS automatically.

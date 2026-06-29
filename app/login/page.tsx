@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -22,9 +22,20 @@ function LoginInner() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  // Count the cooldown down to 0, one second at a time.
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => {
+      setCooldown((c) => (c <= 1 ? 0 : c - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (cooldown > 0 || loading) return;
     setError(null);
     setLoading(true);
     try {
@@ -33,9 +44,12 @@ function LoginInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error ?? "Correo o password incorrecto");
+        if (typeof data.retryAfter === "number" && data.retryAfter > 0) {
+          setCooldown(data.retryAfter);
+        }
         return;
       }
       router.replace(from);
@@ -80,8 +94,8 @@ function LoginInner() {
             autoComplete="current-password"
             disabled={loading}
           />
-          <Button type="submit" loading={loading} size="lg">
-            Ingresar
+          <Button type="submit" loading={loading} disabled={cooldown > 0} size="lg">
+            {cooldown > 0 ? `Espera ${cooldown}s` : "Ingresar"}
           </Button>
         </form>
       </div>
