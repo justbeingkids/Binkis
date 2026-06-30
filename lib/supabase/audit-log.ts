@@ -4,6 +4,7 @@ export type AuditAction =
   | "login_success"
   | "login_failed"
   | "created"
+  | "account_deleted"
   | "email_changed"
   | "password_changed"
   | "disabled"
@@ -46,6 +47,22 @@ export async function logAdminEvent(entry: {
   } catch (err) {
     console.error("logAdminEvent threw:", err);
   }
+}
+
+export async function deleteAuditEntry(id: string): Promise<void> {
+  const supabase = getAdminClient();
+  const { error } = await supabase.from("admin_audit_log").delete().eq("id", id);
+  if (error) throw new Error(`Supabase deleteAuditEntry failed: ${error.message}`);
+}
+
+export async function clearAuditLog(): Promise<void> {
+  const supabase = getAdminClient();
+  // Supabase requires a filter on delete; this one matches every real row.
+  const { error } = await supabase
+    .from("admin_audit_log")
+    .delete()
+    .neq("id", "00000000-0000-0000-0000-000000000000");
+  if (error) throw new Error(`Supabase clearAuditLog failed: ${error.message}`);
 }
 
 export async function listAuditLog(limit = 300): Promise<AuditEntry[]> {

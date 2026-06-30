@@ -103,6 +103,31 @@ export function UsersManager({ currentEmail }: { currentEmail: string }) {
     }
   }
 
+  async function deleteUser(u: UserRow) {
+    if (
+      !window.confirm(
+        `¿Eliminar la cuenta ${u.email}? Esta acción es permanente y no se puede deshacer.`
+      )
+    ) {
+      return;
+    }
+    setBusyId(u.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/users/${u.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "No se pudo eliminar");
+        return;
+      }
+      await load();
+    } catch {
+      setError("Error de red");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function handleSaveEdit(id: string) {
     const payload: Record<string, unknown> = {};
     if (editEmail.trim()) payload.email = editEmail.trim();
@@ -231,11 +256,19 @@ export function UsersManager({ currentEmail }: { currentEmail: string }) {
                           </Button>
                           <Button
                             size="sm"
-                            variant={u.disabled ? "secondary" : "danger"}
+                            variant="secondary"
                             loading={busyId === u.id}
                             onClick={() => patch(u.id, { disabled: !u.disabled })}
                           >
                             {u.disabled ? "Habilitar" : "Deshabilitar"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            loading={busyId === u.id}
+                            onClick={() => deleteUser(u)}
+                          >
+                            Eliminar
                           </Button>
                         </div>
                       )}

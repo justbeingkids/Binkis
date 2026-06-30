@@ -21,12 +21,8 @@ export default async function AccountPage() {
       />
       <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
         <AccountSettings currentEmail={email} />
-        {isSuper ? (
-          <>
-            <UsersManager currentEmail={email} />
-            <AuditLog />
-          </>
-        ) : null}
+        {isSuper ? <UsersManager currentEmail={email} /> : null}
+        <AuditLog />
       </div>
     </>
   );

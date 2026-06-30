@@ -124,6 +124,12 @@ export async function setAdminUserDisabled(id: string, disabled: boolean): Promi
   if (error) throw new Error(`Supabase setAdminUserDisabled failed: ${error.message}`);
 }
 
+export async function deleteAdminUser(id: string): Promise<void> {
+  const supabase = getAdminClient();
+  const { error } = await supabase.from("admin_users").delete().eq("id", id);
+  if (error) throw new Error(`Supabase deleteAdminUser failed: ${error.message}`);
+}
+
 export async function upsertAdminUser(email: string, passwordHash: string): Promise<void> {
   const supabase = getAdminClient();
   const { error } = await supabase

@@ -7,6 +7,7 @@ import {
   updateAdminUserEmail,
   updateAdminUserPassword,
   setAdminUserDisabled,
+  deleteAdminUser,
 } from "@/lib/supabase/admin-users";
 import { hashPassword } from "@/lib/password";
 import { logAdminEvent, type AuditAction } from "@/lib/supabase/audit-log";
@@ -79,6 +80,34 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     await setAdminUserDisabled(id, parsed.data.disabled);
     await log(parsed.data.disabled ? "disabled" : "enabled", target.email);
   }
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getAdminSession();
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!isSuperAdmin(session.sub)) return NextResponse.json({ error: "Solo el super admin" }, { status: 403 });
+
+  const { id } = await params;
+  const target = await findAdminUserById(id);
+  if (!target) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+
+  if (isSuperAdmin(target.email)) {
+    return NextResponse.json({ error: "No se puede eliminar al super admin" }, { status: 400 });
+  }
+
+  await deleteAdminUser(id);
+
+  const geo = extractGeo(request);
+  await logAdminEvent({
+    actorEmail: session.sub,
+    action: "account_deleted",
+    targetEmail: target.email,
+    ip: geo.ip,
+    country: geo.country,
+    city: geo.city,
+  });
 
   return NextResponse.json({ ok: true });
 }
