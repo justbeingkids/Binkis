@@ -11,6 +11,7 @@ interface DbCharacterRow {
   win_probability: number | string;
   active: boolean;
   sort_order: number;
+  image_url: string | null;
   created_at: string;
 }
 
@@ -28,6 +29,7 @@ function toCharacter(row: DbCharacterRow): Character {
     winProbability: Number(row.win_probability),
     active: row.active,
     sortOrder: Number(row.sort_order),
+    imageUrl: row.image_url ?? null,
     createdAt: row.created_at,
   };
 }

@@ -1,16 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ImageIcon, X } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardBody } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/Table";
+import { getBrowserClient } from "@/lib/supabase/browser";
+import { imageUpload } from "@/lib/config";
 import type { Character } from "@/types";
 
-export function CharactersManager() {
-  const [items, setItems] = useState<Character[]>([]);
-  const [loading, setLoading] = useState(true);
+const maxMb = Math.round(imageUpload.maxBytes / (1024 * 1024));
+
+export function CharactersManager({ initialCharacters }: { initialCharacters: Character[] }) {
+  // Seeded from the server render (page.tsx) so there is no client fetch on
+  // mount that could momentarily fail auth and flash "No autorizado".
+  const [items, setItems] = useState<Character[]>(initialCharacters);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [newName, setNewName] = useState("");
@@ -25,11 +32,24 @@ export function CharactersManager() {
   const [editWeight, setEditWeight] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  const [imgBusyId, setImgBusyId] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<string | null>(null);
+
+  /** Any protected request that comes back 401 means the session expired. */
+  function goLoginIfUnauthorized(status: number): boolean {
+    if (status === 401) {
+      window.location.href = "/login";
+      return true;
+    }
+    return false;
+  }
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/characters");
+      if (goLoginIfUnauthorized(res.status)) return;
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error ?? "No se pudo cargar la lista");
@@ -43,9 +63,15 @@ export function CharactersManager() {
     }
   }, []);
 
+  // Close the fullscreen image viewer with Escape.
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!lightbox) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setLightbox(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightbox]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -61,6 +87,7 @@ export function CharactersManager() {
           weight: Number(newWeight) || 1,
         }),
       });
+      if (goLoginIfUnauthorized(res.status)) return;
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setCreateMsg(data.error ?? "No se pudo crear");
@@ -87,6 +114,7 @@ export function CharactersManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      if (goLoginIfUnauthorized(res.status)) return false;
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error ?? "No se pudo actualizar");
@@ -108,6 +136,7 @@ export function CharactersManager() {
     setError(null);
     try {
       const res = await fetch(`/api/characters/${c.id}`, { method: "DELETE" });
+      if (goLoginIfUnauthorized(res.status)) return;
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error ?? "No se pudo eliminar");
@@ -118,6 +147,75 @@ export function CharactersManager() {
       setError("Error de red");
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function uploadImage(id: string, file: File) {
+    // Validate on the client for instant feedback (Storage also enforces the cap).
+    if (!(imageUpload.allowedTypes as readonly string[]).includes(file.type)) {
+      setError("Formato no permitido (usa PNG, JPG, WEBP o GIF)");
+      return;
+    }
+    if (file.size > imageUpload.maxBytes) {
+      setError(`La imagen supera los ${maxMb} MB`);
+      return;
+    }
+
+    setImgBusyId(id);
+    setError(null);
+    try {
+      // 1. Ask the server for a signed upload ticket (admin-gated).
+      const signRes = await fetch(`/api/characters/${id}/image/sign`, { method: "POST" });
+      if (goLoginIfUnauthorized(signRes.status)) return;
+      const ticket = await signRes.json().catch(() => ({}));
+      if (!signRes.ok) {
+        setError(ticket.error ?? "No se pudo preparar la subida");
+        return;
+      }
+
+      // 2. Upload the file straight to Supabase Storage (no Vercel size limit).
+      const { error: upErr } = await getBrowserClient()
+        .storage.from(ticket.bucket)
+        .uploadToSignedUrl(ticket.path, ticket.token, file, { contentType: file.type });
+      if (upErr) {
+        setError("No se pudo subir la imagen");
+        return;
+      }
+
+      // 3. Finalize: record the public URL on the character row.
+      const finRes = await fetch(`/api/characters/${id}/image`, { method: "POST" });
+      if (goLoginIfUnauthorized(finRes.status)) return;
+      const finData = await finRes.json().catch(() => ({}));
+      if (!finRes.ok) {
+        setError(finData.error ?? "No se pudo guardar la imagen");
+        return;
+      }
+
+      await load();
+    } catch {
+      setError("Error de red");
+    } finally {
+      setImgBusyId(null);
+    }
+  }
+
+  async function removeImage(c: Character) {
+    if (!window.confirm(`¿Quitar la imagen de "${c.name}"?`)) return;
+    setImgBusyId(c.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/characters/${c.id}/image`, { method: "DELETE" });
+      if (goLoginIfUnauthorized(res.status)) return;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "No se pudo quitar la imagen");
+        return;
+      }
+      await load();
+    } catch {
+      setError("Error de red");
+    } finally {
+      setImgBusyId(null);
     }
   }
 
@@ -186,6 +284,9 @@ export function CharactersManager() {
             Agregar
           </Button>
         </form>
+        <p className="mb-4 text-xs text-ink-400">
+          La imagen de cada personaje se agrega en la tabla, después de crearlo.
+        </p>
         {createMsg ? <p className="mb-4 text-sm text-ink-600">{createMsg}</p> : null}
         {error ? <p className="mb-4 text-sm text-status-invalid">{error}</p> : null}
 
@@ -195,6 +296,7 @@ export function CharactersManager() {
           <>
             <Table>
               <THead>
+                <TH>Imagen</TH>
                 <TH>Personaje</TH>
                 <TH>Cantidad</TH>
                 <TH className="hidden sm:table-cell">Asignados</TH>
@@ -207,6 +309,55 @@ export function CharactersManager() {
               <TBody>
                 {items.map((c, idx) => (
                   <TR key={c.id} striped={idx % 2 === 1}>
+                    <TD>
+                      <div className="flex items-center gap-2.5">
+                        {c.imageUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => setLightbox(c.imageUrl)}
+                            title="Ver en pantalla completa"
+                            className="shrink-0 overflow-hidden rounded-md border border-ink-200 transition hover:ring-2 hover:ring-accent/40"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={c.imageUrl} alt={c.name} className="h-11 w-11 object-cover" />
+                          </button>
+                        ) : (
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-dashed border-ink-200 text-ink-300">
+                            <ImageIcon size={16} strokeWidth={1.75} />
+                          </div>
+                        )}
+                        <div className="flex flex-col items-start gap-0.5">
+                          <label
+                            className={`cursor-pointer text-xs font-medium text-accent hover:underline ${
+                              imgBusyId === c.id ? "pointer-events-none opacity-50" : ""
+                            }`}
+                          >
+                            {imgBusyId === c.id ? "Subiendo…" : c.imageUrl ? "Cambiar" : "Subir"}
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp,image/gif"
+                              className="hidden"
+                              disabled={imgBusyId === c.id}
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                e.target.value = "";
+                                if (f) void uploadImage(c.id, f);
+                              }}
+                            />
+                          </label>
+                          {c.imageUrl ? (
+                            <button
+                              type="button"
+                              onClick={() => removeImage(c)}
+                              disabled={imgBusyId === c.id}
+                              className="text-xs text-ink-400 transition hover:text-status-invalid disabled:opacity-50"
+                            >
+                              Quitar
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    </TD>
                     <TD className="font-medium text-ink-900">
                       {editingId === c.id ? (
                         <Input
@@ -308,6 +459,31 @@ export function CharactersManager() {
           </>
         )}
       </CardBody>
+
+      {lightbox ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/80 p-4 backdrop-blur-sm"
+          onClick={() => setLightbox(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <button
+            type="button"
+            aria-label="Cerrar"
+            onClick={() => setLightbox(null)}
+            className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20"
+          >
+            <X size={20} strokeWidth={2.5} />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightbox}
+            alt=""
+            className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      ) : null}
     </Card>
   );
 }

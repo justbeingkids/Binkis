@@ -52,6 +52,7 @@ export interface Character {
   winProbability: number;
   active: boolean;
   sortOrder: number;
+  imageUrl: string | null;
   createdAt: string;
 }
 

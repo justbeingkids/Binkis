@@ -105,12 +105,16 @@ create table if not exists public.characters (
   win_probability numeric not null default 0,
   active boolean not null default true,
   sort_order integer not null default 0,
+  image_url text,
   created_at timestamptz not null default now(),
   constraint characters_assigned_within_quota check (assigned_count >= 0 and assigned_count <= quota),
   constraint characters_weight_nonneg check (weight >= 0)
 );
 
 create index if not exists idx_characters_sort on public.characters (sort_order, created_at);
+
+-- Added after the initial characters table shipped; safe to re-run.
+alter table public.characters add column if not exists image_url text;
 
 -- Link a winning code to the character it was assigned (set once, permanent).
 alter table public.codes add column if not exists character_id uuid references public.characters(id);
