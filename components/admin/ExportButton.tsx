@@ -24,6 +24,7 @@ const COLUMN_OPTIONS: ColumnOption[] = [
   { key: "winner_email", label: "Correo del ganador", group: "winner" },
   { key: "winner_phone", label: "Telefono del ganador", group: "winner" },
   { key: "winner_address", label: "Direccion del ganador", group: "winner" },
+  { key: "character", label: "Personaje asignado", group: "winner" },
 ];
 
 interface ExportButtonProps {
@@ -45,7 +46,7 @@ const PRESETS: { id: string; label: string; description: string; scope: Scope; c
     label: "Solo ganadores",
     description: "Codigos ya reclamados con todos los datos del ganador",
     scope: "winners",
-    columns: ["code", "generated_at", "claimed_at", "winner_name", "winner_email", "winner_phone", "winner_address"],
+    columns: ["code", "generated_at", "claimed_at", "winner_name", "winner_email", "winner_phone", "winner_address", "character"],
   },
   {
     id: "only-available",
@@ -56,7 +57,7 @@ const PRESETS: { id: string; label: string; description: string; scope: Scope; c
   },
   {
     id: "all",
-    label: "Todo (8 columnas)",
+    label: "Todo (9 columnas)",
     description: "Exportacion completa del sheet",
     scope: "all",
     columns: COLUMN_OPTIONS.map((c) => c.key),

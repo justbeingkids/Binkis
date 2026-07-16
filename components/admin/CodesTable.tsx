@@ -98,11 +98,12 @@ export function CodesTable({ codes, showWinner = false, paginated = true }: Code
             Reclamado
           </SortableTH>
           {showWinner ? <TH>Ganador</TH> : null}
+          {showWinner ? <TH>Personaje</TH> : null}
           <TH className="text-right">Acciones</TH>
         </THead>
         <TBody>
           <tr>
-            <td colSpan={showWinner ? 6 : 5}>
+            <td colSpan={showWinner ? 7 : 5}>
               <EmptyState>
                 <div className="flex flex-col items-center gap-3 text-ink-500">
                   <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-muted">
@@ -139,6 +140,7 @@ export function CodesTable({ codes, showWinner = false, paginated = true }: Code
           Reclamado
         </SortableTH>
         {showWinner ? <TH>Ganador</TH> : null}
+        {showWinner ? <TH>Personaje</TH> : null}
         <TH className="text-right">Acciones</TH>
       </THead>
       <TBody>
@@ -173,6 +175,15 @@ export function CodesTable({ codes, showWinner = false, paginated = true }: Code
                 )}
               </TD>
             ) : null}
+            {showWinner ? (
+              <TD>
+                {c.characterName ? (
+                  <Badge tone="warning">{c.characterName}</Badge>
+                ) : (
+                  <span className="text-ink-300">-</span>
+                )}
+              </TD>
+            ) : null}
             <TD className="text-right">
               <Link
                 href={`/card/${c.code}`}
@@ -188,7 +199,7 @@ export function CodesTable({ codes, showWinner = false, paginated = true }: Code
       {paginated && sorted.length > pageSize ? (
         <tfoot>
           <tr>
-            <td colSpan={showWinner ? 6 : 5} className="p-0">
+            <td colSpan={showWinner ? 7 : 5} className="p-0">
               <Pagination
                 page={page}
                 pageSize={pageSize}

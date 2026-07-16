@@ -13,6 +13,7 @@ import {
   Trophy,
   Dices,
   UserCog,
+  Sparkles,
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -29,6 +30,7 @@ const navItems: NavItem[] = [
   { href: "/codes", label: "Codigos", icon: Hash },
   { href: "/generate", label: "Generar", icon: PlusSquare },
   { href: "/lottery", label: "Sorteo", icon: Dices },
+  { href: "/characters", label: "Personajes", icon: Sparkles },
   { href: "/verify", label: "Verificar", icon: ShieldCheck },
   { href: "/winners", label: "Ganadores", icon: Trophy },
 ];

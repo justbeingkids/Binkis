@@ -10,6 +10,7 @@ export interface CodeRecord {
   winnerEmail: string | null;
   winnerPhone: string | null;
   winnerAddress: string | null;
+  characterName?: string | null;
 }
 
 export interface CodeMetrics {
@@ -38,4 +39,28 @@ export interface WinnerSubmission {
   email: string;
   phone: string;
   address: string;
+}
+
+export interface Character {
+  id: string;
+  name: string;
+  variantId: string | null;
+  quota: number;
+  assignedCount: number;
+  remaining: number;
+  weight: number;
+  winProbability: number;
+  active: boolean;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface AssignedCharacter {
+  id: string;
+  name: string;
+}
+
+export interface LoyaltyBalance {
+  email: string;
+  points: number;
 }

@@ -11,6 +11,16 @@ interface DbCodeRow {
   winner_phone: string | null;
   winner_address: string | null;
   created_at: string;
+  // Present only when the query embeds the character relationship.
+  characters?: { name: string } | { name: string }[] | null;
+}
+
+/** Normalize an embedded character (Supabase may return an object or a 1-row array). */
+function characterName(row: DbCodeRow): string | null {
+  const c = row.characters;
+  if (!c) return null;
+  if (Array.isArray(c)) return c[0]?.name ?? null;
+  return c.name ?? null;
 }
 
 function rowToRecord(row: DbCodeRow): CodeRecord {
@@ -24,6 +34,7 @@ function rowToRecord(row: DbCodeRow): CodeRecord {
     winnerEmail: row.winner_email,
     winnerPhone: row.winner_phone,
     winnerAddress: row.winner_address,
+    characterName: characterName(row),
   };
 }
 
@@ -36,7 +47,9 @@ export async function getAllCodes(): Promise<CodeRecord[]> {
   while (true) {
     const { data, error } = await supabase
       .from("codes")
-      .select("code,is_winner,claimed,claimed_at,winner_name,winner_email,winner_phone,winner_address,created_at")
+      .select(
+        "code,is_winner,claimed,claimed_at,winner_name,winner_email,winner_phone,winner_address,created_at,characters(name)"
+      )
       .order("created_at", { ascending: true })
       .range(from, from + pageSize - 1);
 
@@ -100,15 +113,20 @@ export async function findCode(code: string): Promise<CodeRecord | null> {
   return rowToRecord(data as DbCodeRow);
 }
 
+/**
+ * Claim a code. `justClaimed` is true only when THIS call flipped the code from
+ * unclaimed to claimed (used to award one-time side effects like loyalty points
+ * exactly once, even on re-submits or concurrent requests).
+ */
 export async function markCodeClaimed(
   code: string,
   winner: { name: string; email: string; phone: string; address: string }
-): Promise<CodeRecord | null> {
+): Promise<{ record: CodeRecord; justClaimed: boolean } | null> {
   const supabase = getAdminClient();
   const existing = await findCode(code);
   if (!existing) return null;
-  if (existing.claimed) return existing;
-  if (!existing.isWinner) return existing;
+  if (existing.claimed) return { record: existing, justClaimed: false };
+  if (!existing.isWinner) return { record: existing, justClaimed: false };
 
   const now = new Date().toISOString();
   const { data, error } = await supabase
@@ -127,8 +145,12 @@ export async function markCodeClaimed(
     .maybeSingle();
 
   if (error) throw new Error(`Supabase markCodeClaimed failed: ${error.message}`);
-  if (!data) return await findCode(code);
-  return rowToRecord(data as DbCodeRow);
+  if (!data) {
+    // Lost the race: another request claimed it between findCode and update.
+    const fresh = await findCode(code);
+    return fresh ? { record: fresh, justClaimed: false } : null;
+  }
+  return { record: rowToRecord(data as DbCodeRow), justClaimed: true };
 }
 
 export async function getMetrics(): Promise<CodeMetrics> {

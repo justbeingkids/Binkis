@@ -14,6 +14,7 @@ const SHEET_HEADERS = [
   "winner_email",
   "winner_phone",
   "winner_address",
+  "character",
   "generated_at",
 ] as const;
 
@@ -109,6 +110,8 @@ export async function GET(request: Request) {
             return r.winnerPhone ?? "";
           case "winner_address":
             return r.winnerAddress ?? "";
+          case "character":
+            return r.characterName ?? "";
           case "generated_at":
             return r.generatedAt;
           default:
