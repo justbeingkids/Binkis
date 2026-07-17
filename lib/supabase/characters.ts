@@ -1,4 +1,5 @@
 import { getAdminClient } from "./client";
+import { removeCharacterImage } from "./character-images";
 import type { Character } from "@/types";
 
 interface DbCharacterRow {
@@ -147,6 +148,13 @@ export async function deleteCharacter(
   const supabase = getAdminClient();
   const { error } = await supabase.from("characters").delete().eq("id", id);
   if (error) throw new Error(`deleteCharacter failed: ${error.message}`);
+  // Best-effort: drop the stored image so it doesn't linger orphaned in Storage.
+  // Never fail the delete over cleanup (the row is already gone).
+  try {
+    await removeCharacterImage(id);
+  } catch (e) {
+    console.error("removeCharacterImage on delete failed:", e);
+  }
   const warning = await recompute();
   return { ok: true, warning };
 }
