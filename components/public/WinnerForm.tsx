@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 
@@ -85,7 +86,15 @@ export function WinnerForm({ code }: WinnerFormProps) {
         placeholder="Calle, numero, colonia, ciudad, estado, CP"
         disabled={submitting}
       />
-      {error ? <p className="text-sm text-status-invalid">{error}</p> : null}
+      {error ? (
+        <div
+          role="alert"
+          className="flex items-start gap-2.5 rounded-lg border border-status-invalid/30 bg-status-invalidBg px-4 py-3 text-sm font-medium text-status-invalid"
+        >
+          <AlertCircle size={18} strokeWidth={2} className="mt-0.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      ) : null}
       <Button type="submit" loading={submitting} size="lg">
         Reclamar premio
       </Button>

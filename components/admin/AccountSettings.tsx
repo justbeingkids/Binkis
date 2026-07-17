@@ -4,8 +4,10 @@ import { useState } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardBody } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
 
 export function AccountSettings({ currentEmail }: { currentEmail: string }) {
+  const toast = useToast();
   const [step, setStep] = useState<"verify" | "edit">("verify");
   const [curEmail, setCurEmail] = useState(currentEmail);
   const [curPassword, setCurPassword] = useState("");
@@ -14,7 +16,6 @@ export function AccountSettings({ currentEmail }: { currentEmail: string }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   async function post(payload: Record<string, string>) {
     const res = await fetch("/api/admin/account", {
@@ -29,7 +30,6 @@ export function AccountSettings({ currentEmail }: { currentEmail: string }) {
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setSuccess(null);
     setLoading(true);
     try {
       const { ok, data } = await post({ currentEmail: curEmail, currentPassword: curPassword });
@@ -51,7 +51,6 @@ export function AccountSettings({ currentEmail }: { currentEmail: string }) {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setSuccess(null);
     if (newPassword && newPassword !== confirmPassword) {
       setError("Las contraseñas no coinciden");
       return;
@@ -71,7 +70,7 @@ export function AccountSettings({ currentEmail }: { currentEmail: string }) {
       if (data.email) setCurEmail(data.email);
       setNewPassword("");
       setConfirmPassword("");
-      setSuccess("Cambios guardados correctamente.");
+      toast.success("Cambios guardados");
     } catch {
       setError("Error de red");
     } finally {
@@ -141,7 +140,6 @@ export function AccountSettings({ currentEmail }: { currentEmail: string }) {
               disabled={loading}
               autoComplete="new-password"
             />
-            {success ? <p className="text-sm font-medium text-status-claimed">{success}</p> : null}
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button type="submit" loading={loading} className="w-full sm:w-auto">
                 Guardar cambios
@@ -156,7 +154,6 @@ export function AccountSettings({ currentEmail }: { currentEmail: string }) {
                   setCurPassword("");
                   setConfirmPassword("");
                   setError(null);
-                  setSuccess(null);
                 }}
               >
                 Cancelar

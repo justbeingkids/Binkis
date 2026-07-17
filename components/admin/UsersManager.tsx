@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/Table";
+import { useToast } from "@/components/ui/Toast";
+import { SpinnerBlock } from "@/components/ui/Spinner";
 import { formatDateTime } from "@/lib/format";
 
 interface UserRow {
@@ -17,6 +19,7 @@ interface UserRow {
 
 export function UsersManager({ currentEmail }: { currentEmail: string }) {
   const me = currentEmail.trim().toLowerCase();
+  const toast = useToast();
 
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loadingList, setLoadingList] = useState(true);
@@ -25,7 +28,6 @@ export function UsersManager({ currentEmail }: { currentEmail: string }) {
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [creating, setCreating] = useState(false);
-  const [createMsg, setCreateMsg] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editEmail, setEditEmail] = useState("");
@@ -57,7 +59,6 @@ export function UsersManager({ currentEmail }: { currentEmail: string }) {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setCreating(true);
-    setCreateMsg(null);
     try {
       const res = await fetch("/api/admin/users", {
         method: "POST",
@@ -66,21 +67,21 @@ export function UsersManager({ currentEmail }: { currentEmail: string }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setCreateMsg(data.error ?? "No se pudo crear");
+        toast.error("No se pudo crear el usuario", data.error);
         return;
       }
       setNewEmail("");
       setNewPassword("");
-      setCreateMsg("Usuario creado.");
       await load();
+      toast.success("Usuario creado");
     } catch {
-      setCreateMsg("Error de red");
+      toast.error("Error de red", "No se pudo crear el usuario");
     } finally {
       setCreating(false);
     }
   }
 
-  async function patch(id: string, payload: Record<string, unknown>) {
+  async function patch(id: string, payload: Record<string, unknown>, successMsg?: string) {
     setBusyId(id);
     try {
       const res = await fetch(`/api/admin/users/${id}`, {
@@ -90,13 +91,14 @@ export function UsersManager({ currentEmail }: { currentEmail: string }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error ?? "No se pudo actualizar");
+        toast.error("No se pudo actualizar", data.error);
         return false;
       }
       await load();
+      if (successMsg) toast.success(successMsg);
       return true;
     } catch {
-      setError("Error de red");
+      toast.error("Error de red", "No se pudo actualizar");
       return false;
     } finally {
       setBusyId(null);
@@ -112,17 +114,17 @@ export function UsersManager({ currentEmail }: { currentEmail: string }) {
       return;
     }
     setBusyId(u.id);
-    setError(null);
     try {
       const res = await fetch(`/api/admin/users/${u.id}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error ?? "No se pudo eliminar");
+        toast.error("No se pudo eliminar", data.error);
         return;
       }
       await load();
+      toast.success("Usuario eliminado");
     } catch {
-      setError("Error de red");
+      toast.error("Error de red", "No se pudo eliminar");
     } finally {
       setBusyId(null);
     }
@@ -136,7 +138,7 @@ export function UsersManager({ currentEmail }: { currentEmail: string }) {
       setEditingId(null);
       return;
     }
-    const ok = await patch(id, payload);
+    const ok = await patch(id, payload, "Cambios guardados");
     if (ok) setEditingId(null);
   }
 
@@ -176,11 +178,10 @@ export function UsersManager({ currentEmail }: { currentEmail: string }) {
             Crear
           </Button>
         </form>
-        {createMsg ? <p className="mb-4 text-sm text-ink-600">{createMsg}</p> : null}
         {error ? <p className="mb-4 text-sm text-status-invalid">{error}</p> : null}
 
         {loadingList ? (
-          <p className="text-sm text-ink-400">Cargando…</p>
+          <SpinnerBlock label="Cargando usuarios…" />
         ) : (
           <Table>
             <THead>
@@ -258,7 +259,13 @@ export function UsersManager({ currentEmail }: { currentEmail: string }) {
                             size="sm"
                             variant="secondary"
                             loading={busyId === u.id}
-                            onClick={() => patch(u.id, { disabled: !u.disabled })}
+                            onClick={() =>
+                              patch(
+                                u.id,
+                                { disabled: !u.disabled },
+                                u.disabled ? "Usuario habilitado" : "Usuario deshabilitado"
+                              )
+                            }
                           >
                             {u.disabled ? "Habilitar" : "Deshabilitar"}
                           </Button>

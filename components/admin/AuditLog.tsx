@@ -6,6 +6,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardBody } from "@/compon
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/Table";
+import { useToast } from "@/components/ui/Toast";
+import { SpinnerBlock } from "@/components/ui/Spinner";
 import { formatDateTime } from "@/lib/format";
 
 interface AuditRow {
@@ -43,6 +45,7 @@ function location(country: string | null, city: string | null): string {
 }
 
 export function AuditLog() {
+  const toast = useToast();
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [canDelete, setCanDelete] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -78,12 +81,13 @@ export function AuditLog() {
       const res = await fetch(`/api/admin/audit/${id}`, { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "No se pudo eliminar");
+        toast.error("No se pudo eliminar", data.error);
         return;
       }
       setRows((rs) => rs.filter((r) => r.id !== id));
+      toast.success("Evento eliminado");
     } catch {
-      setError("Error de red");
+      toast.error("Error de red", "No se pudo eliminar");
     } finally {
       setBusyId(null);
     }
@@ -98,12 +102,13 @@ export function AuditLog() {
       const res = await fetch("/api/admin/audit", { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "No se pudo limpiar");
+        toast.error("No se pudo limpiar el registro", data.error);
         return;
       }
       setRows([]);
+      toast.success("Registro limpiado");
     } catch {
-      setError("Error de red");
+      toast.error("Error de red", "No se pudo limpiar el registro");
     } finally {
       setClearing(false);
     }
@@ -127,7 +132,7 @@ export function AuditLog() {
         ) : null}
 
         {loading ? (
-          <p className="text-sm text-ink-400">Cargando…</p>
+          <SpinnerBlock label="Cargando registro…" />
         ) : error ? (
           <p className="text-sm text-status-invalid">{error}</p>
         ) : rows.length === 0 ? (

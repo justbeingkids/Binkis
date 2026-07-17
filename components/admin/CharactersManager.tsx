@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Dialog } from "@/components/ui/Dialog";
+import { useToast } from "@/components/ui/Toast";
 import { getBrowserClient } from "@/lib/supabase/browser";
 import { imageUpload } from "@/lib/config";
 import { formatNumber } from "@/lib/format";
@@ -14,6 +15,7 @@ import type { Character } from "@/types";
 const maxMb = Math.round(imageUpload.maxBytes / (1024 * 1024));
 
 export function CharactersManager({ initialCharacters }: { initialCharacters: Character[] }) {
+  const toast = useToast();
   const [items, setItems] = useState<Character[]>(initialCharacters);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,7 +25,6 @@ export function CharactersManager({ initialCharacters }: { initialCharacters: Ch
   const [newQuota, setNewQuota] = useState("");
   const [newWeight, setNewWeight] = useState("1");
   const [creating, setCreating] = useState(false);
-  const [createMsg, setCreateMsg] = useState<string | null>(null);
 
   // Edit dialog
   const [editing, setEditing] = useState<Character | null>(null);
@@ -45,6 +46,7 @@ export function CharactersManager({ initialCharacters }: { initialCharacters: Ch
   }
 
   const load = useCallback(async () => {
+    setError(null);
     try {
       const res = await fetch("/api/characters");
       if (goLoginIfUnauthorized(res.status)) return;
@@ -70,7 +72,6 @@ export function CharactersManager({ initialCharacters }: { initialCharacters: Ch
 
   async function handleCreate() {
     setCreating(true);
-    setCreateMsg(null);
     try {
       const res = await fetch("/api/characters", {
         method: "POST",
@@ -80,7 +81,7 @@ export function CharactersManager({ initialCharacters }: { initialCharacters: Ch
       if (goLoginIfUnauthorized(res.status)) return;
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setCreateMsg(data.error ?? "No se pudo crear");
+        toast.error("No se pudo crear el personaje", data.error);
         return;
       }
       setNewName("");
@@ -88,15 +89,13 @@ export function CharactersManager({ initialCharacters }: { initialCharacters: Ch
       setNewWeight("1");
       setShowCreate(false);
       await load();
-      // The row was created; if the odds refresh failed, show it as a non-blocking
-      // notice on the page (not as a "could not create" error).
-      setError(
-        data.warning
-          ? `Personaje creado, pero no se pudieron recalcular las probabilidades: ${data.warning}`
-          : null
-      );
+      toast.success("Personaje creado");
+      // The row was created; a failed odds refresh is a caveat, not a failure.
+      if (data.warning) {
+        toast.info("No se recalcularon las probabilidades", data.warning);
+      }
     } catch {
-      setCreateMsg("Error de red");
+      toast.error("Error de red", "No se pudo crear el personaje");
     } finally {
       setCreating(false);
     }
@@ -104,7 +103,6 @@ export function CharactersManager({ initialCharacters }: { initialCharacters: Ch
 
   async function patch(id: string, payload: Record<string, unknown>): Promise<boolean> {
     setBusyId(id);
-    setError(null);
     try {
       const res = await fetch(`/api/characters/${id}`, {
         method: "PATCH",
@@ -114,13 +112,14 @@ export function CharactersManager({ initialCharacters }: { initialCharacters: Ch
       if (goLoginIfUnauthorized(res.status)) return false;
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error ?? "No se pudo actualizar");
+        toast.error("No se pudo actualizar", data.error);
         return false;
       }
       await load();
+      if (data.warning) toast.info("No se recalcularon las probabilidades", data.warning);
       return true;
     } catch {
-      setError("Error de red");
+      toast.error("Error de red", "No se pudo actualizar");
       return false;
     } finally {
       setBusyId(null);
@@ -130,18 +129,18 @@ export function CharactersManager({ initialCharacters }: { initialCharacters: Ch
   async function removeItem(c: Character) {
     if (!window.confirm(`¿Eliminar el personaje "${c.name}"?`)) return;
     setBusyId(c.id);
-    setError(null);
     try {
       const res = await fetch(`/api/characters/${c.id}`, { method: "DELETE" });
       if (goLoginIfUnauthorized(res.status)) return;
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error ?? "No se pudo eliminar");
+        toast.error("No se pudo eliminar", data.error);
         return;
       }
       await load();
+      toast.success("Personaje eliminado");
     } catch {
-      setError("Error de red");
+      toast.error("Error de red", "No se pudo eliminar");
     } finally {
       setBusyId(null);
     }
@@ -149,40 +148,40 @@ export function CharactersManager({ initialCharacters }: { initialCharacters: Ch
 
   async function uploadImage(id: string, file: File) {
     if (!(imageUpload.allowedTypes as readonly string[]).includes(file.type)) {
-      setError("Formato no permitido (usa PNG, JPG, WEBP o GIF)");
+      toast.error("Formato no permitido", "Usa PNG, JPG, WEBP o GIF");
       return;
     }
     if (file.size > imageUpload.maxBytes) {
-      setError(`La imagen supera los ${maxMb} MB`);
+      toast.error("Imagen demasiado grande", `El máximo es ${maxMb} MB`);
       return;
     }
     setImgBusyId(id);
-    setError(null);
     try {
       const signRes = await fetch(`/api/characters/${id}/image/sign`, { method: "POST" });
       if (goLoginIfUnauthorized(signRes.status)) return;
       const ticket = await signRes.json().catch(() => ({}));
       if (!signRes.ok) {
-        setError(ticket.error ?? "No se pudo preparar la subida");
+        toast.error("No se pudo subir la imagen", ticket.error ?? "Error al preparar la subida");
         return;
       }
       const { error: upErr } = await getBrowserClient()
         .storage.from(ticket.bucket)
         .uploadToSignedUrl(ticket.path, ticket.token, file, { contentType: file.type });
       if (upErr) {
-        setError("No se pudo subir la imagen");
+        toast.error("No se pudo subir la imagen");
         return;
       }
       const finRes = await fetch(`/api/characters/${id}/image`, { method: "POST" });
       if (goLoginIfUnauthorized(finRes.status)) return;
       const finData = await finRes.json().catch(() => ({}));
       if (!finRes.ok) {
-        setError(finData.error ?? "No se pudo guardar la imagen");
+        toast.error("No se pudo guardar la imagen", finData.error);
         return;
       }
       await load();
+      toast.success("Imagen actualizada");
     } catch {
-      setError("Error de red");
+      toast.error("Error de red", "No se pudo subir la imagen");
     } finally {
       setImgBusyId(null);
     }
@@ -191,18 +190,18 @@ export function CharactersManager({ initialCharacters }: { initialCharacters: Ch
   async function removeImage(c: Character) {
     if (!window.confirm(`¿Quitar la imagen de "${c.name}"?`)) return;
     setImgBusyId(c.id);
-    setError(null);
     try {
       const res = await fetch(`/api/characters/${c.id}/image`, { method: "DELETE" });
       if (goLoginIfUnauthorized(res.status)) return;
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error ?? "No se pudo quitar la imagen");
+        toast.error("No se pudo quitar la imagen", data.error);
         return;
       }
       await load();
+      toast.success("Imagen eliminada");
     } catch {
-      setError("Error de red");
+      toast.error("Error de red", "No se pudo quitar la imagen");
     } finally {
       setImgBusyId(null);
     }
@@ -225,7 +224,10 @@ export function CharactersManager({ initialCharacters }: { initialCharacters: Ch
     const w = Number(editWeight);
     if (editWeight !== "" && Number.isFinite(w) && w >= 0) payload.weight = w;
     const ok = await patch(editing.id, payload);
-    if (ok) setEditing(null);
+    if (ok) {
+      setEditing(null);
+      toast.success("Cambios guardados");
+    }
   }
 
   const maxProb = items.reduce((m, c) => Math.max(m, c.winProbability), 0);
@@ -374,7 +376,6 @@ export function CharactersManager({ initialCharacters }: { initialCharacters: Ch
             <Input label="Cantidad" type="number" min={0} value={newQuota} onChange={(e) => setNewQuota(e.target.value)} disabled={creating} />
             <Input label="Peso" type="number" min={0} step="0.1" value={newWeight} onChange={(e) => setNewWeight(e.target.value)} disabled={creating} />
           </div>
-          {createMsg ? <p className="text-sm text-status-invalid">{createMsg}</p> : null}
         </div>
       </Dialog>
 
