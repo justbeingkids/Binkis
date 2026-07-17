@@ -9,14 +9,11 @@ export default async function GeneratePage() {
   const codes = await getAllCodes();
 
   return (
-    <>
-      <Topbar
-        title="Generar codigos"
-        description="Cada batch se agrega al sheet existente. El acumulado crece con cada ejecucion."
-      />
-      <div className="p-4 sm:p-6 lg:p-8">
+    <div className="flex h-full flex-col">
+      <Topbar title="Generar codigos" breadcrumb="Codigos" />
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-6 sm:px-6 lg:px-8">
         <GenerateForm currentTotal={codes.length} maxPerBatch={10000} />
       </div>
-    </>
+    </div>
   );
 }

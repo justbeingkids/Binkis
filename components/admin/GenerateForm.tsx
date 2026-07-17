@@ -2,11 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Download, ShieldCheck } from "lucide-react";
+import { Download, ShieldCheck, Code2, Lock, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Card, CardHeader, CardTitle, CardDescription, CardBody } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
 import { formatNumber } from "@/lib/format";
 
@@ -34,12 +32,11 @@ interface LastResult {
 }
 
 function sanitizeDomain(input: string): string {
-  return input
-    .trim()
-    .replace(/^https?:\/\//i, "")
-    .replace(/\/.*$/, "")
-    .toLowerCase();
+  return input.trim().replace(/^https?:\/\//i, "").replace(/\/.*$/, "").toLowerCase();
 }
+
+// Shown before a batch exists — communicates the real code shape (BNK-XXXX-XXXX).
+const PLACEHOLDER_CODES = ["BNK-••••-••••", "BNK-••••-••••", "BNK-••••-••••", "BNK-••••-••••", "BNK-••••-••••", "BNK-••••-••••"];
 
 export function GenerateForm({
   currentTotal,
@@ -56,17 +53,19 @@ export function GenerateForm({
   const [isPending, startTransition] = useTransition();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const busy = isSubmitting || isPending;
+  const presetCounts = [100, 1000, 5000, 10000];
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setResult(null);
-
     if (count < minPerBatch || count > maxPerBatch) {
-      setError(`Ingrese un numero entre ${minPerBatch} y ${maxPerBatch}`);
+      setError(`Ingrese un numero entre ${formatNumber(minPerBatch)} y ${formatNumber(maxPerBatch)}`);
       return;
     }
-
     setIsSubmitting(true);
     try {
       const res = await fetch("/api/codes/generate", {
@@ -104,7 +103,6 @@ export function GenerateForm({
       const cleanDomain = sanitizeDomain(domain);
       const params = new URLSearchParams({ scope: "factory" });
       if (cleanDomain) params.set("domain", cleanDomain);
-
       const res = await fetch(`/api/codes/export?${params.toString()}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -113,7 +111,6 @@ export function GenerateForm({
       const blob = await res.blob();
       const today = new Date().toISOString().slice(0, 10);
       const filename = `binkis-fabrica-${today}.csv`;
-
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -130,22 +127,26 @@ export function GenerateForm({
     }
   }
 
-  const presetCounts = [100, 1000, 5000, 10000];
-  const canDownloadFactory = currentTotal > 0;
+  async function copyCode(code: string) {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(code);
+      window.setTimeout(() => setCopied((v) => (v === code ? null : v)), 1200);
+    } catch {
+      toast.error("No se pudo copiar");
+    }
+  }
+
+  const previewCodes = result ? result.codes.slice(0, 8) : PLACEHOLDER_CODES;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-5">
-      <Card className="lg:col-span-2">
-        <CardHeader>
-          <CardTitle>Generar nuevo batch</CardTitle>
-          <CardDescription>
-            Los codigos se agregan al sheet existente. Total actual: {formatNumber(currentTotal)}
-          </CardDescription>
-        </CardHeader>
-        <CardBody>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <div className="grid gap-5 lg:grid-cols-2">
+      {/* Form */}
+      <div className="rounded-xl border border-ink-200 bg-white p-5 shadow-card sm:p-6">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <div className="flex flex-col gap-2">
             <Input
-              label="Cantidad de codigos"
+              label="Cantidad"
               type="number"
               inputMode="numeric"
               min={minPerBatch}
@@ -153,115 +154,113 @@ export function GenerateForm({
               step={100}
               value={count}
               onChange={(e) => setCount(Number(e.target.value))}
-              hint={`Entre ${formatNumber(minPerBatch)} y ${formatNumber(maxPerBatch)} por batch.`}
+              hint={`Numero de codigos unicos a generar (entre ${formatNumber(minPerBatch)} y ${formatNumber(maxPerBatch)}).`}
               error={error ?? undefined}
-              disabled={isSubmitting || isPending}
+              disabled={busy}
             />
-            <Input
-              label="Dominio para las URLs del QR (opcional)"
-              type="text"
-              placeholder="binkis.xyz"
-              value={domain}
-              onChange={(e) => setDomain(e.target.value)}
-              hint="Se incluye en el archivo de fabrica. Si lo dejas vacio, el CSV exporta solo los codigos."
-              autoComplete="off"
-              disabled={isSubmitting || isPending}
-            />
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" loading={isSubmitting || isPending}>
-                Generar {formatNumber(count)} codigos
-              </Button>
+            <div className="flex flex-wrap gap-1.5">
               {presetCounts.map((preset) => (
-                <Button
+                <button
                   key={preset}
                   type="button"
-                  variant="secondary"
                   onClick={() => setCount(preset)}
-                  disabled={isSubmitting || isPending}
+                  disabled={busy}
+                  className={`rounded-md border px-2.5 py-1 text-xs font-medium tabular-nums transition-colors ${
+                    count === preset
+                      ? "border-accent bg-accent text-white"
+                      : "border-ink-200 text-ink-600 hover:bg-surface-muted"
+                  }`}
                 >
                   {formatNumber(preset)}
-                </Button>
+                </button>
               ))}
             </div>
+          </div>
+
+          <Input
+            label="Dominio para las URLs del QR (opcional)"
+            type="text"
+            placeholder="binkis.xyz"
+            value={domain}
+            onChange={(e) => setDomain(e.target.value)}
+            hint="Se incluye en el CSV de fabrica. Vacio exporta solo los codigos."
+            autoComplete="off"
+            disabled={busy}
+          />
+
+          <div className="flex flex-col gap-2 border-t border-ink-100 pt-5">
+            <Button type="submit" size="lg" loading={busy} className="w-full gap-2">
+              <Code2 size={17} strokeWidth={2.25} />
+              Generar {formatNumber(count)} codigos
+            </Button>
             <Button
               type="button"
               variant="secondary"
               onClick={handleDownloadFactoryCsv}
               loading={downloading}
-              disabled={!canDownloadFactory || isSubmitting}
+              disabled={currentTotal === 0 || isSubmitting}
+              className="w-full gap-2"
             >
-              <Download size={14} strokeWidth={2.5} />
+              <Download size={15} strokeWidth={2.25} />
               Descargar CSV para fabrica
             </Button>
-          </form>
-        </CardBody>
-      </Card>
-
-      <Card className="lg:col-span-3">
-        <CardHeader>
-          <CardTitle>Ultimo batch generado</CardTitle>
-          <CardDescription>
-            {result
-              ? `${formatNumber(result.generated)} codigos. Total ahora: ${formatNumber(result.totalAfter)}`
-              : "Aun no se ha generado ningun batch en esta sesion."}
-          </CardDescription>
-        </CardHeader>
-        <CardBody>
-          {result ? (
-            <div className="flex flex-col gap-4">
-              {result.uniqueness ? (
-                <div
-                  className={
-                    result.uniqueness.verified
-                      ? "flex items-center gap-3 rounded-md border border-status-claimed/20 bg-status-claimedBg/40 px-4 py-2.5"
-                      : "flex items-center gap-3 rounded-md border border-status-invalid/20 bg-status-invalidBg/60 px-4 py-2.5"
-                  }
-                >
-                  <ShieldCheck
-                    size={16}
-                    strokeWidth={2.5}
-                    className={result.uniqueness.verified ? "text-status-claimed" : "text-status-invalid"}
-                  />
-                  <div className="flex flex-1 flex-col">
-                    <p className="text-xs font-semibold text-ink-900">
-                      {result.uniqueness.verified ? "Unicidad verificada" : "Anomalia detectada"}
-                    </p>
-                    <p className="text-[11px] text-ink-500">
-                      {formatNumber(result.uniqueness.existingBefore)} previos + {formatNumber(result.uniqueness.addedNow)} nuevos = {formatNumber(result.uniqueness.totalAfter)} totales. Duplicados detectados: {result.uniqueness.duplicatesDetected}.
-                    </p>
-                  </div>
-                  <Badge tone={result.uniqueness.verified ? "success" : "danger"}>
-                    {result.uniqueness.verified ? "OK" : "Revisar"}
-                  </Badge>
-                </div>
-              ) : null}
-              <div className="rounded-md border border-ink-100 bg-surface-muted px-3 py-2.5">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-400">
-                  URL de ejemplo del batch
-                </p>
-                <p className="mt-1 break-all font-mono text-xs text-ink-700">
-                  {result.domain
-                    ? `https://${result.domain}/claim?code=${result.codes[0]}`
-                    : result.codes[0]}
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-2 font-mono text-xs text-ink-700 sm:grid-cols-3 lg:grid-cols-4">
-                {result.codes.slice(0, 60).map((c) => (
-                  <span key={c}>{c}</span>
-                ))}
-                {result.codes.length > 60 ? (
-                  <span className="text-ink-400">+{formatNumber(result.codes.length - 60)} mas...</span>
-                ) : null}
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-ink-400">
-              Una vez que ejecute la generacion, aqui veras los codigos creados en este batch
-              junto con la verificacion de unicidad contra el sheet.
+            <p className="mt-1 flex items-center justify-center gap-1.5 text-xs text-ink-400">
+              <Lock size={12} strokeWidth={2} />
+              Se generaran codigos unicos e irrepetibles.
             </p>
-          )}
-        </CardBody>
-      </Card>
+          </div>
+        </form>
+      </div>
+
+      {/* Preview */}
+      <div className="rounded-xl border border-ink-200 bg-white p-5 shadow-card sm:p-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold text-ink-900">Vista previa</h2>
+          {result?.uniqueness ? (
+            <span
+              className={`inline-flex items-center gap-1.5 text-xs font-medium ${
+                result.uniqueness.verified ? "text-status-claimed" : "text-status-invalid"
+              }`}
+            >
+              <ShieldCheck size={14} strokeWidth={2.25} />
+              {result.uniqueness.verified ? "Unicidad verificada" : "Revisar"}
+            </span>
+          ) : null}
+        </div>
+        <p className="mt-1 text-sm text-ink-500">
+          {result
+            ? `${formatNumber(result.generated)} codigos generados. Total: ${formatNumber(result.totalAfter)}.`
+            : "Ejemplos del formato de codigo que se generara."}
+        </p>
+
+        <div className="mt-4 flex flex-col divide-y divide-ink-100">
+          {previewCodes.map((code, i) => (
+            <div key={`${code}-${i}`} className="flex items-center justify-between py-2.5">
+              <span className={`font-mono text-sm ${result ? "text-ink-800" : "text-ink-300"}`}>{code}</span>
+              {result ? (
+                <button
+                  type="button"
+                  onClick={() => copyCode(code)}
+                  title="Copiar"
+                  className="flex h-8 w-8 items-center justify-center rounded-md border border-ink-200 text-ink-500 transition-colors hover:bg-surface-muted hover:text-ink-900"
+                >
+                  {copied === code ? (
+                    <Check size={14} strokeWidth={2.5} className="text-status-claimed" />
+                  ) : (
+                    <Copy size={14} strokeWidth={2} />
+                  )}
+                </button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+
+        <p className="mt-4 text-xs text-ink-400">
+          {result && result.codes.length > previewCodes.length
+            ? `+${formatNumber(result.codes.length - previewCodes.length)} mas en este batch. Descarga el CSV para la lista completa.`
+            : "Los codigos reales se generaran al confirmar."}
+        </p>
+      </div>
     </div>
   );
 }

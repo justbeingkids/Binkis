@@ -10,14 +10,11 @@ export default async function CharactersPage() {
   const initialCharacters = await listCharacters();
 
   return (
-    <>
-      <Topbar
-        title="Personajes"
-        description="Inventario y probabilidad de asignación de las ediciones limitadas."
-      />
-      <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
+    <div className="flex h-full flex-col">
+      <Topbar title="Personajes" />
+      <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 sm:px-6 lg:px-8">
         <CharactersManager initialCharacters={initialCharacters} />
       </div>
-    </>
+    </div>
   );
 }
