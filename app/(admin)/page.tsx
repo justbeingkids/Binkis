@@ -1,177 +1,107 @@
 import Link from "next/link";
-import { Hash, CircleCheck, Activity, TrendingUp, Sparkles, ShieldCheck, Trophy, Dices } from "lucide-react";
+import { Code2, CircleCheck, Trophy, Boxes } from "lucide-react";
 import { Topbar } from "@/components/admin/Topbar";
 import { MetricCard } from "@/components/admin/MetricCard";
 import { CodesTable } from "@/components/admin/CodesTable";
-import { InsightsCard } from "@/components/admin/InsightsCard";
-import { Card, CardHeader, CardTitle, CardDescription, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import { buildDailySeries, computeMetrics, getAllCodes } from "@/lib/supabase/codes";
-import { formatDateTime, formatNumber, formatPercent } from "@/lib/format";
+import { formatNumber, formatPercent } from "@/lib/format";
+import type { CodeRecord } from "@/types";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+type Delta = { value: string; direction: "up" | "down" | "flat" };
+
+/** Percent change of the latest bucket vs the average of the prior buckets. */
+function pctDelta(values: number[]): Delta {
+  if (values.length < 2) return { value: "0%", direction: "flat" };
+  const last = values[values.length - 1] ?? 0;
+  const prevAvg = values.slice(0, -1).reduce((a, b) => a + b, 0) / (values.length - 1);
+  if (prevAvg === 0) {
+    return last > 0 ? { value: "+100%", direction: "up" } : { value: "0%", direction: "flat" };
+  }
+  const pct = ((last - prevAvg) / prevAvg) * 100;
+  return {
+    value: `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`,
+    direction: pct > 0 ? "up" : pct < 0 ? "down" : "flat",
+  };
+}
+
+/** Latest codes first, by activity time (claim time when claimed, else generation). */
+function byRecency(codes: CodeRecord[]): CodeRecord[] {
+  return [...codes].sort((a, b) => {
+    const at = a.claimedAt ?? a.generatedAt;
+    const bt = b.claimedAt ?? b.generatedAt;
+    return bt > at ? 1 : bt < at ? -1 : 0;
+  });
+}
 
 export default async function DashboardPage() {
   const codes = await getAllCodes();
   const metrics = computeMetrics(codes);
   const series = buildDailySeries(codes, 7);
-  const recentDeltaPct = (() => {
-    const last = series.generated[series.generated.length - 1] ?? 0;
-    const prev = series.generated.slice(0, -1).reduce((a, b) => a + b, 0) / Math.max(1, series.generated.length - 1);
-    if (prev === 0) return last > 0 ? "100%" : "0%";
-    const pct = ((last - prev) / prev) * 100;
-    return `${pct >= 0 ? "+" : ""}${pct.toFixed(0)}%`;
-  })();
-
-  const sorted = [...codes].sort((a, b) => (b.generatedAt > a.generatedAt ? 1 : -1));
-  const recent = sorted.slice(0, 8);
+  const winnerShare = metrics.totalGenerated === 0 ? 0 : metrics.totalWinners / metrics.totalGenerated;
+  const recent = byRecency(codes);
 
   return (
-    <>
+    <div className="flex h-full flex-col">
       <Topbar
-        breadcrumb="Dashboard"
         title="Resumen"
-        description="Estado general del sistema de validacion. Las metricas se actualizan al recargar."
-        meta={
-          <>
-            <Badge tone="success">Supabase conectado</Badge>
-            {metrics.latestGeneratedAt ? (
-              <span className="text-xs text-ink-400">
-                Ultima generacion: {formatDateTime(metrics.latestGeneratedAt)}
-              </span>
-            ) : null}
-          </>
-        }
         action={
           <Link href="/generate">
-            <Button>Generar codigos</Button>
+            <Button className="gap-2">
+              <Code2 size={16} strokeWidth={2.25} />
+              Generar codigos
+            </Button>
           </Link>
         }
       />
-      <div className="flex flex-col gap-6 p-4 animate-fadeUp sm:p-6 lg:p-8">
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+      <div className="flex flex-1 flex-col gap-4 px-4 pb-4 sm:px-6 lg:min-h-0 lg:overflow-hidden lg:px-8">
+        {/* KPI row */}
+        <section className="grid shrink-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
-            label="Codigos totales"
+            label="Codigos generados"
             value={formatNumber(metrics.totalGenerated)}
-            hint="Generados en la base"
-            icon={<Hash size={14} strokeWidth={2.25} />}
-            sparkline={series.cumulative}
-            delta={{
-              value: recentDeltaPct,
-              direction: recentDeltaPct.startsWith("-")
-                ? "down"
-                : recentDeltaPct === "0%"
-                ? "flat"
-                : "up",
-            }}
+            icon={<Code2 size={16} strokeWidth={2} />}
+            delta={pctDelta(series.generated)}
+            hint="vs. periodo previo"
+          />
+          <MetricCard
+            label="Codigos usados"
+            value={formatNumber(metrics.totalClaimed)}
+            icon={<CircleCheck size={16} strokeWidth={2} />}
+            delta={pctDelta(series.claimed)}
+            hint="vs. periodo previo"
           />
           <MetricCard
             label="Ganadores"
             value={formatNumber(metrics.totalWinners)}
-            hint="Marcados como ganadores"
-            icon={<Trophy size={14} strokeWidth={2.25} />}
-            progress={metrics.totalGenerated === 0 ? 0 : metrics.totalWinners / metrics.totalGenerated}
+            icon={<Trophy size={16} strokeWidth={2} />}
+            hint={`${formatPercent(winnerShare)} del total`}
           />
           <MetricCard
-            label="Disponibles"
+            label="Codigos disponibles"
             value={formatNumber(metrics.totalAvailable)}
-            hint="Ganadores no reclamados"
-            icon={<Activity size={14} strokeWidth={2.25} />}
-          />
-          <MetricCard
-            label="Tasa de reclamo"
-            value={formatPercent(metrics.claimRate)}
-            hint="Reclamados sobre ganadores"
-            icon={<TrendingUp size={14} strokeWidth={2.25} />}
-            donut={metrics.claimRate}
+            icon={<Boxes size={16} strokeWidth={2} />}
+            hint="Ganadores sin reclamar"
           />
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-3">
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <CardTitle>Codigos recientes</CardTitle>
-                  <CardDescription>Ultimos 8 codigos agregados a la base.</CardDescription>
-                </div>
-                <Link href="/codes" className="shrink-0 text-sm font-medium text-accent hover:underline">
-                  Ver todos
-                </Link>
-              </div>
-            </CardHeader>
-            <CardBody className="p-0">
-              <CodesTable codes={recent} paginated={false} />
-            </CardBody>
-          </Card>
-
-          <div className="flex flex-col gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Acciones rapidas</CardTitle>
-                <CardDescription>Operaciones frecuentes.</CardDescription>
-              </CardHeader>
-              <CardBody className="flex flex-col gap-2">
-                <ActionRow href="/generate" icon={Sparkles} label="Generar batch" subtitle="Hasta 10,000 por click" />
-                <ActionRow
-                  href="/lottery"
-                  icon={Dices}
-                  label="Correr sorteo"
-                  subtitle={
-                    metrics.totalWinners > 0
-                      ? `${formatNumber(metrics.totalWinners)} ganadores seleccionados`
-                      : "Seleccionar ganadores"
-                  }
-                />
-                <ActionRow href="/verify" icon={ShieldCheck} label="Verificar codigo" subtitle="Comprobar si es ganador" />
-                <ActionRow
-                  href="/winners"
-                  icon={Trophy}
-                  label="Ver ganadores"
-                  subtitle={
-                    metrics.totalClaimed > 0
-                      ? `${formatNumber(metrics.totalClaimed)} reclamados`
-                      : "Sin reclamos aun"
-                  }
-                />
-              </CardBody>
-            </Card>
-
-            <InsightsCard records={codes} />
+        {/* Recent activity */}
+        <section className="flex min-h-[320px] flex-col rounded-xl border border-ink-200 bg-white shadow-card lg:min-h-0 lg:flex-1">
+          <div className="flex items-center justify-between gap-3 border-b border-ink-100 px-5 py-4">
+            <h2 className="text-base font-semibold text-ink-900">Actividad reciente</h2>
+            <Link href="/codes" className="text-sm font-medium text-brand hover:underline">
+              Ver todos
+            </Link>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <CodesTable codes={recent} />
           </div>
         </section>
       </div>
-    </>
-  );
-}
-
-function ActionRow({
-  href,
-  icon: Icon,
-  label,
-  subtitle,
-}: {
-  href: string;
-  icon: typeof Hash;
-  label: string;
-  subtitle: string;
-}) {
-  return (
-    <Link href={href}>
-      <div className="flex items-center justify-between rounded-md border border-ink-100 px-3 py-2.5 transition-all hover:border-ink-200 hover:bg-surface-muted">
-        <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-surface-muted text-ink-500">
-            <Icon size={14} strokeWidth={2.25} />
-          </span>
-          <div>
-            <p className="text-sm font-medium text-ink-900">{label}</p>
-            <p className="text-xs text-ink-400">{subtitle}</p>
-          </div>
-        </div>
-        <span className="text-ink-400">&rarr;</span>
-      </div>
-    </Link>
+    </div>
   );
 }

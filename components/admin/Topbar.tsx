@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 interface TopbarProps {
@@ -7,6 +9,7 @@ interface TopbarProps {
   action?: ReactNode;
   meta?: ReactNode;
   className?: string;
+  /** Optional crumb shown between "Inicio" and the page title. */
   breadcrumb?: string;
 }
 
@@ -14,19 +17,25 @@ export function Topbar({ title, description, action, meta, className, breadcrumb
   return (
     <header
       className={cn(
-        "sticky top-14 z-10 flex shrink-0 flex-col gap-4 border-b border-ink-200 bg-white/95 px-4 py-5 backdrop-blur-sm sm:px-6 md:top-0 md:flex-row md:items-end md:justify-between md:py-5 lg:px-8",
+        "flex shrink-0 flex-col gap-4 px-4 py-5 sm:px-6 md:flex-row md:items-start md:justify-between lg:px-8",
         className
       )}
     >
-      <div className="flex flex-col gap-1">
-        {breadcrumb ? (
-          <p className="text-[11px] font-medium uppercase tracking-widest text-ink-400">
-            {breadcrumb}
-          </p>
-        ) : null}
-        <h1 className="text-2xl font-semibold leading-tight tracking-tight text-ink-900 md:text-display">
-          {title}
-        </h1>
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <h1 className="text-xl font-bold tracking-tight text-ink-900 sm:text-2xl">{title}</h1>
+        <nav className="flex items-center gap-1 text-sm text-ink-400" aria-label="Ruta">
+          <Link href="/" className="hover:text-ink-700">
+            Inicio
+          </Link>
+          {breadcrumb ? (
+            <>
+              <ChevronRight size={14} className="text-ink-300" />
+              <span>{breadcrumb}</span>
+            </>
+          ) : null}
+          <ChevronRight size={14} className="text-ink-300" />
+          <span className="text-ink-500">{title}</span>
+        </nav>
         {description ? (
           <p className="max-w-xl text-sm leading-relaxed text-ink-500">{description}</p>
         ) : null}

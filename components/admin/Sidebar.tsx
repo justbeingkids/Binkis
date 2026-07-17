@@ -1,72 +1,36 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  LayoutDashboard,
-  Hash,
-  PlusSquare,
-  Trophy,
-  ShieldCheck,
-  Dices,
-  UserCog,
-  Sparkles,
-  LogOut,
-} from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, ChevronDown, LogOut } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { navItems, isActivePath } from "@/lib/nav";
+import { publicEnv } from "@/lib/env";
 
-interface NavItem {
-  href: string;
-  label: string;
-  icon: typeof LayoutDashboard;
+function initialsFromEmail(email: string | null | undefined): string {
+  if (!email) return "AD";
+  const name = email.split("@")[0] ?? email;
+  const parts = name.split(/[.\-_]+/).filter(Boolean);
+  const letters = parts.length >= 2 ? parts[0][0] + parts[1][0] : name.slice(0, 2);
+  return letters.toUpperCase();
 }
 
-const overviewItems: NavItem[] = [
-  { href: "/", label: "Resumen", icon: LayoutDashboard },
-  { href: "/account", label: "Mi cuenta", icon: UserCog },
-];
-
-const codesItems: NavItem[] = [
-  { href: "/codes", label: "Codigos", icon: Hash },
-  { href: "/generate", label: "Generar", icon: PlusSquare },
-  { href: "/lottery", label: "Sorteo", icon: Dices },
-  { href: "/characters", label: "Personajes", icon: Sparkles },
-  { href: "/verify", label: "Verificar", icon: ShieldCheck },
-  { href: "/winners", label: "Ganadores", icon: Trophy },
-];
-
-function NavLink({ item, active }: { item: NavItem; active: boolean }) {
-  const Icon = item.icon;
-  return (
-    <Link
-      href={item.href}
-      className={cn(
-        "group relative flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-        active
-          ? "bg-surface-muted text-ink-900"
-          : "text-ink-500 hover:bg-surface-muted hover:text-ink-900"
-      )}
-    >
-      {active ? (
-        <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-amber" />
-      ) : null}
-      <Icon
-        size={15}
-        strokeWidth={2}
-        className={active ? "text-ink-900" : "text-ink-400 group-hover:text-ink-700"}
-      />
-      <span>{item.label}</span>
-    </Link>
-  );
+function displayName(email: string | null | undefined): string {
+  if (!email) return "Administrador";
+  const name = email.split("@")[0] ?? email;
+  return name
+    .split(/[.\-_]+/)
+    .filter(Boolean)
+    .map((p) => p[0].toUpperCase() + p.slice(1))
+    .join(" ");
 }
 
-export function Sidebar() {
+export function Sidebar({ userEmail }: { userEmail?: string | null }) {
   const pathname = usePathname();
   const router = useRouter();
-
-  function isActive(href: string) {
-    return href === "/" ? pathname === "/" : pathname.startsWith(href);
-  }
+  const [collapsed, setCollapsed] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   async function handleLogout() {
     try {
@@ -78,68 +42,103 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-ink-200 bg-white md:flex">
-      <div className="flex h-16 shrink-0 items-center border-b border-ink-200 px-5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-accent text-white shadow-soft">
-            <span className="font-mono text-[11px] font-bold tracking-tighter">BK</span>
-          </div>
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold tracking-tight text-ink-900">BinKis</span>
-            <span className="text-[10px] uppercase tracking-wider text-ink-400">Validacion</span>
-          </div>
-        </div>
-      </div>
-
-      <nav className="flex flex-1 flex-col gap-5 overflow-y-auto p-3">
-        <div className="flex flex-col gap-0.5">
-          <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-ink-400">
-            General
-          </p>
-          {overviewItems.map((item) => (
-            <NavLink key={item.href} item={item} active={isActive(item.href)} />
-          ))}
-        </div>
-
-        <div className="flex flex-col gap-0.5">
-          <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-ink-400">
-            Codigos
-          </p>
-          {codesItems.map((item) => (
-            <NavLink key={item.href} item={item} active={isActive(item.href)} />
-          ))}
-        </div>
-      </nav>
-
-      <div className="border-t border-ink-200 p-3">
-        <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-ink-400">
-          Conexion
-        </p>
-        <div className="flex flex-col gap-1.5 px-3 py-1.5">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-ink-500">Google Sheet</span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-status-claimed" />
-              <span className="text-[11px] font-medium text-status-claimed">Activo</span>
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-ink-500">Coleccion</span>
-            <span className="text-[11px] font-medium text-ink-700">No.777</span>
-          </div>
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-ink-500">Edicion</span>
-            <span className="text-[11px] font-medium text-ink-700">Limitada</span>
-          </div>
-        </div>
+    <aside
+      className={cn(
+        "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-ink-200 bg-white transition-[width] duration-200 md:flex",
+        collapsed ? "w-[72px]" : "w-64"
+      )}
+    >
+      {/* Brand */}
+      <div className="flex h-16 shrink-0 items-center justify-between px-5">
+        {!collapsed ? (
+          <Link href="/" className="text-lg font-bold tracking-tight text-ink-900">
+            {publicEnv.NEXT_PUBLIC_BRAND_NAME}
+          </Link>
+        ) : null}
         <button
           type="button"
-          onClick={handleLogout}
-          className="mt-2 flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-ink-500 transition-colors hover:bg-status-invalidBg hover:text-status-invalid"
+          onClick={() => setCollapsed((v) => !v)}
+          aria-label={collapsed ? "Expandir menu" : "Colapsar menu"}
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-lg border border-ink-200 text-ink-400 transition-colors hover:bg-surface-muted hover:text-ink-700",
+            collapsed && "mx-auto"
+          )}
         >
-          <LogOut size={15} strokeWidth={2} />
-          <span>Cerrar sesión</span>
+          {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
         </button>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-2">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const active = isActivePath(pathname, item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              title={collapsed ? item.label : undefined}
+              className={cn(
+                "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                collapsed && "justify-center px-0",
+                active
+                  ? "bg-surface-muted text-ink-900"
+                  : "text-ink-500 hover:bg-surface-muted hover:text-ink-900"
+              )}
+            >
+              <Icon
+                size={19}
+                strokeWidth={2}
+                className={cn("shrink-0", active ? "text-ink-900" : "text-ink-400 group-hover:text-ink-700")}
+              />
+              {!collapsed ? <span className="truncate">{item.label}</span> : null}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* User */}
+      <div className="relative border-t border-ink-200 p-3">
+        {menuOpen && !collapsed ? (
+          <div className="absolute bottom-full left-3 right-3 mb-1 rounded-lg border border-ink-200 bg-white p-1 shadow-elevated">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-status-invalid transition-colors hover:bg-status-invalidBg"
+            >
+              <LogOut size={15} strokeWidth={2} />
+              Cerrar sesion
+            </button>
+          </div>
+        ) : null}
+        {collapsed ? (
+          <button
+            type="button"
+            onClick={handleLogout}
+            title="Cerrar sesion"
+            className="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-ink-900 text-xs font-semibold text-white"
+          >
+            {initialsFromEmail(userEmail)}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            className="flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-surface-muted"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink-900 text-xs font-semibold text-white">
+              {initialsFromEmail(userEmail)}
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col leading-tight">
+              <span className="truncate text-sm font-medium text-ink-900">{displayName(userEmail)}</span>
+              <span className="truncate text-xs text-ink-400">{userEmail ?? "Sesion activa"}</span>
+            </span>
+            <ChevronDown
+              size={16}
+              className={cn("shrink-0 text-ink-400 transition-transform", menuOpen && "rotate-180")}
+            />
+          </button>
+        )}
       </div>
     </aside>
   );

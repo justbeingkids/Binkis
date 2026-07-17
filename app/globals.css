@@ -8,15 +8,14 @@
 
 html,
 body {
-  background-color: #fafaf9;
-  color: #0b0d0f;
-  font-feature-settings: "cv11", "ss03";
+  background-color: #fbfbfb;
+  color: #18181b;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 * {
-  border-color: #e8ebef;
+  border-color: #e4e4e7;
 }
 
 /* Sticky scroll for sub-elements that need it */
@@ -60,14 +59,14 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: #f4f4f2;
+  background: #f4f4f5;
 }
 ::-webkit-scrollbar-thumb {
-  background: #d6dae0;
+  background: #d4d4d8;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #a6acb6;
+  background: #a1a1aa;
 }
 
 .tabular-nums {
