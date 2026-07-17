@@ -88,6 +88,13 @@ export function CharactersManager({ initialCharacters }: { initialCharacters: Ch
       setNewWeight("1");
       setShowCreate(false);
       await load();
+      // The row was created; if the odds refresh failed, show it as a non-blocking
+      // notice on the page (not as a "could not create" error).
+      setError(
+        data.warning
+          ? `Personaje creado, pero no se pudieron recalcular las probabilidades: ${data.warning}`
+          : null
+      );
     } catch {
       setCreateMsg("Error de red");
     } finally {
@@ -316,6 +323,15 @@ export function CharactersManager({ initialCharacters }: { initialCharacters: Ch
                     <p className="truncate text-sm font-semibold text-ink-900">{c.name}</p>
                     {!c.active ? <Badge tone="neutral" dot={false}>Inactivo</Badge> : null}
                   </div>
+
+                  {/* Count */}
+                  <div className="mt-2 flex items-center justify-between text-xs">
+                    <span className="text-ink-400">Cantidad</span>
+                    <span className="font-semibold tabular-nums text-ink-900">{formatNumber(c.quota)}</span>
+                  </div>
+                  <p className="mt-0.5 text-[11px] tabular-nums text-ink-400">
+                    {formatNumber(c.assignedCount)} asignados · {formatNumber(c.remaining)} restantes
+                  </p>
 
                   {/* Probability */}
                   <div className="mt-2 flex items-center justify-between text-xs">

@@ -34,11 +34,20 @@ function toCharacter(row: DbCharacterRow): Character {
   };
 }
 
-/** Refresh every character's stored win_probability. Call after any change. */
-async function recompute(): Promise<void> {
+/**
+ * Refresh every character's stored win_probability. Called after any change.
+ * Non-fatal: the row change itself already succeeded, and assign_character
+ * self-heals stale probabilities at award time, so a recompute hiccup must not
+ * fail the whole request. Returns the error message (for surfacing) or null.
+ */
+async function recompute(): Promise<string | null> {
   const supabase = getAdminClient();
   const { error } = await supabase.rpc("recompute_win_probabilities");
-  if (error) throw new Error(`recompute_win_probabilities failed: ${error.message}`);
+  if (error) {
+    console.error("recompute_win_probabilities failed:", error.message);
+    return error.message;
+  }
+  return null;
 }
 
 export async function listCharacters(): Promise<Character[]> {
@@ -66,7 +75,7 @@ export async function createCharacter(input: {
   weight?: number;
   variantId?: string | null;
   sortOrder?: number;
-}): Promise<Character> {
+}): Promise<{ character: Character; warning: string | null }> {
   const supabase = getAdminClient();
   const { data, error } = await supabase
     .from("characters")
@@ -80,8 +89,8 @@ export async function createCharacter(input: {
     .select("*")
     .single();
   if (error) throw new Error(`createCharacter failed: ${error.message}`);
-  await recompute();
-  return toCharacter(data as DbCharacterRow);
+  const warning = await recompute();
+  return { character: toCharacter(data as DbCharacterRow), warning };
 }
 
 export async function updateCharacter(
@@ -94,7 +103,7 @@ export async function updateCharacter(
     variantId?: string | null;
     sortOrder?: number;
   }
-): Promise<{ ok: boolean; reason?: "not_found" | "quota_below_assigned" }> {
+): Promise<{ ok: boolean; reason?: "not_found" | "quota_below_assigned"; warning?: string | null }> {
   // Guard: quota can never drop below what's already been awarded.
   if (patch.quota !== undefined) {
     const existing = await findCharacterById(id);
@@ -124,11 +133,13 @@ export async function updateCharacter(
   if (error) throw new Error(`updateCharacter failed: ${error.message}`);
   if (!data) return { ok: false, reason: "not_found" };
 
-  await recompute(); // weight/quota/active all affect the odds
-  return { ok: true };
+  const warning = await recompute(); // weight/quota/active all affect the odds
+  return { ok: true, warning };
 }
 
-export async function deleteCharacter(id: string): Promise<{ ok: boolean; reason?: "not_found" | "has_assignments" }> {
+export async function deleteCharacter(
+  id: string
+): Promise<{ ok: boolean; reason?: "not_found" | "has_assignments"; warning?: string | null }> {
   const existing = await findCharacterById(id);
   if (!existing) return { ok: false, reason: "not_found" };
   if (existing.assignedCount > 0) return { ok: false, reason: "has_assignments" };
@@ -136,8 +147,8 @@ export async function deleteCharacter(id: string): Promise<{ ok: boolean; reason
   const supabase = getAdminClient();
   const { error } = await supabase.from("characters").delete().eq("id", id);
   if (error) throw new Error(`deleteCharacter failed: ${error.message}`);
-  await recompute();
-  return { ok: true };
+  const warning = await recompute();
+  return { ok: true, warning };
 }
 
 /** Assign a character to a winning code (idempotent, weighted, race-safe). */

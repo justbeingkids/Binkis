@@ -32,11 +32,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Datos invalidos" }, { status: 400 });
   }
 
-  const character = await createCharacter({
-    name: parsed.data.name,
-    quota: parsed.data.quota,
-    weight: parsed.data.weight,
-    variantId: parsed.data.variantId ?? null,
-  });
-  return NextResponse.json({ ok: true, character });
+  try {
+    const { character, warning } = await createCharacter({
+      name: parsed.data.name,
+      quota: parsed.data.quota,
+      weight: parsed.data.weight,
+      variantId: parsed.data.variantId ?? null,
+    });
+    return NextResponse.json({ ok: true, character, warning });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "No se pudo crear el personaje";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
