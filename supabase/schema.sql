@@ -155,7 +155,10 @@ returns void language sql as $$
     select coalesce(sum(weight * (quota - assigned_count)), 0) as total
     from public.characters
     where active and (quota - assigned_count) > 0
-  ) t;
+  ) t
+  -- Always true (id is the PK, never null). Present only so pg-safeupdate
+  -- accepts this intentional update of every row.
+  where c.id is not null;
 $$;
 
 -- Atomically assign a character to a winning code, weighted by the stored
