@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Input";
 
@@ -10,10 +9,16 @@ interface WinnerFormProps {
   code: string;
 }
 
+interface ClaimResult {
+  character: { id: string; name: string } | null;
+}
+
 export function WinnerForm({ code }: WinnerFormProps) {
-  const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // When set, the claim succeeded — we switch to the success view right here on
+  // the client (no server re-render), so the transition is instant and reliable.
+  const [claimed, setClaimed] = useState<ClaimResult | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -35,17 +40,40 @@ export function WinnerForm({ code }: WinnerFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error ?? "Error registrando el reclamo");
         return;
       }
-      router.refresh();
+      setClaimed({ character: data.character ?? null });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error registrando el reclamo");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (claimed) {
+    return (
+      <div
+        role="status"
+        className="flex flex-col items-center gap-3 rounded-lg border border-status-claimed/30 bg-status-claimedBg/50 px-6 py-8 text-center"
+      >
+        <CheckCircle2 size={40} className="text-status-claimed" strokeWidth={2} />
+        <div>
+          <p className="text-lg font-semibold text-ink-900">¡Reclamo registrado!</p>
+          <p className="mt-1 text-sm text-ink-600">
+            Enviaremos tu premio a la direccion que proporcionaste.
+          </p>
+        </div>
+        {claimed.character ? (
+          <div className="mt-1 w-full rounded-md border border-ink-100 bg-white px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-500">Tu personaje</p>
+            <p className="mt-0.5 text-base font-semibold text-ink-900">{claimed.character.name}</p>
+          </div>
+        ) : null}
+      </div>
+    );
   }
 
   return (
