@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Dialog } from "@/components/ui/Dialog";
+import { Spinner } from "@/components/ui/Spinner";
 import { useToast } from "@/components/ui/Toast";
 import { getBrowserClient } from "@/lib/supabase/browser";
 import { imageUpload } from "@/lib/config";
@@ -277,6 +278,14 @@ export function CharactersManager({ initialCharacters }: { initialCharacters: Ch
                         <ImageIcon size={26} strokeWidth={1.5} />
                       </div>
                     )}
+
+                    {/* Upload-in-progress overlay */}
+                    {imgBusyId === c.id ? (
+                      <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-white/75 backdrop-blur-sm">
+                        <Spinner size={26} className="text-accent" />
+                        <span className="text-xs font-medium text-ink-600">Subiendo…</span>
+                      </div>
+                    ) : null}
 
                     {/* Hover controls */}
                     <div className="absolute right-2 top-2 flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
