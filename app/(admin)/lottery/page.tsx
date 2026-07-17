@@ -26,12 +26,12 @@ export default async function LotteryPage() {
 
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-6 sm:px-6 lg:px-8">
         {/* Draw card */}
-        <div className="mx-auto w-full max-w-2xl overflow-hidden rounded-xl border border-ink-200 border-t-2 border-t-brand bg-white p-6 shadow-card sm:p-8">
+        <div className="mx-auto w-full max-w-2xl shrink-0 rounded-xl border border-ink-200 border-t-2 border-t-brand bg-white p-6 shadow-card sm:p-8">
           <LotteryPanel currentTotal={metrics.totalGenerated} currentWinners={metrics.totalWinners} />
         </div>
 
         {/* Results */}
-        <div className="rounded-xl border border-ink-200 bg-white shadow-card">
+        <div className="shrink-0 rounded-xl border border-ink-200 bg-white shadow-card">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 px-5 py-4">
             <div className="flex items-center gap-2.5">
               <h2 className="text-base font-semibold text-ink-900">Resultados del sorteo</h2>
