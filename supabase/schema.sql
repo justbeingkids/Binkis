@@ -138,6 +138,28 @@ create table if not exists public.loyalty_transactions (
 
 create index if not exists idx_loyalty_tx_email on public.loyalty_transactions (email, created_at desc);
 
+-- 8b) scan_requests: append-only log of EVERY public code scan / validation,
+--     winner or not. No personal data is collected here — that only happens
+--     when a winner claims (see codes.winner_*). This records the scan event,
+--     its result, and coarse geo/user-agent so all validation traffic is kept.
+create table if not exists public.scan_requests (
+  id uuid primary key default gen_random_uuid(),
+  code text,
+  result text not null,              -- 'valid' | 'claimed' | 'invalid'
+  is_winner boolean,                 -- null when the code doesn't exist / bad format
+  code_exists boolean not null default false,
+  ip text,
+  country text,
+  region text,
+  city text,
+  user_agent text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_scan_requests_created_at on public.scan_requests (created_at desc);
+create index if not exists idx_scan_requests_code on public.scan_requests (code);
+create index if not exists idx_scan_requests_result on public.scan_requests (result);
+
 -- 9) Functions ---------------------------------------------------------------
 
 -- Recompute every character's stored win_probability from weight * remaining,
@@ -236,5 +258,6 @@ alter table public.admin_audit_log enable row level security;
 alter table public.characters enable row level security;
 alter table public.loyalty_accounts enable row level security;
 alter table public.loyalty_transactions enable row level security;
+alter table public.scan_requests enable row level security;
 
 -- No policies = anon is denied. Service role bypasses RLS automatically.
