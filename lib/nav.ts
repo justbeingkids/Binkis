@@ -6,6 +6,7 @@ import {
   Users,
   ShieldCheck,
   Trophy,
+  ScanLine,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -29,6 +30,7 @@ export const navItems: NavItem[] = [
   { href: "/characters", label: "Personajes", icon: Users },
   { href: "/verify", label: "Verificar", icon: ShieldCheck },
   { href: "/winners", label: "Ganadores", icon: Trophy },
+  { href: "/escaneos", label: "Escaneos", icon: ScanLine },
   { href: "/account", label: "Cuenta", icon: Settings },
 ];
 

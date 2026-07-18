@@ -39,3 +39,41 @@ export async function recordScan(entry: ScanEntry): Promise<void> {
     throw new Error(`Supabase recordScan failed: ${error.message}`);
   }
 }
+
+export interface ScanRequest {
+  id: string;
+  code: string | null;
+  result: string;
+  isWinner: boolean | null;
+  codeExists: boolean;
+  ip: string | null;
+  country: string | null;
+  region: string | null;
+  city: string | null;
+  userAgent: string | null;
+  createdAt: string;
+}
+
+/** Most recent scans first, capped at `limit` (newest window for the admin log). */
+export async function getRecentScans(limit = 1000): Promise<ScanRequest[]> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("scan_requests")
+    .select("id,code,result,is_winner,code_exists,ip,country,region,city,user_agent,created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`Supabase getRecentScans failed: ${error.message}`);
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    code: row.code,
+    result: row.result,
+    isWinner: row.is_winner,
+    codeExists: row.code_exists,
+    ip: row.ip,
+    country: row.country,
+    region: row.region,
+    city: row.city,
+    userAgent: row.user_agent,
+    createdAt: row.created_at,
+  }));
+}
