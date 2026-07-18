@@ -1,10 +1,16 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+
+/** Only allow internal absolute paths; blocks open-redirects (//evil, http://evil). */
+function safeInternalPath(raw: string | null): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/";
+  return raw;
+}
 
 export default function LoginPage() {
   return (
@@ -15,9 +21,8 @@ export default function LoginPage() {
 }
 
 function LoginInner() {
-  const router = useRouter();
   const params = useSearchParams();
-  const from = params.get("from") || "/";
+  const from = safeInternalPath(params.get("from"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -52,8 +57,12 @@ function LoginInner() {
         }
         return;
       }
-      router.replace(from);
-      router.refresh();
+      // Full browser navigation (not the client router) so the fresh session
+      // cookie is sent and the original page loads reliably. A client-side
+      // transition here was leaving the user stuck on /login until they
+      // manually changed the URL.
+      window.location.replace(from);
+      return;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
     } finally {
