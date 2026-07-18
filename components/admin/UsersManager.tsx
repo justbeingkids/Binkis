@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { MoreVertical, Plus, Pencil, Power, Trash2, UserPlus } from "lucide-react";
+import { Plus, Pencil, Power, Trash2, UserPlus } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -17,53 +17,36 @@ interface UserRow {
   createdAt: string | null;
 }
 
-/** Small kebab menu with click-away handling. */
-function RowMenu({ children }: { children: (close: () => void) => ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative inline-block text-left">
-      <button
-        type="button"
-        aria-label="Acciones"
-        onClick={() => setOpen((v) => !v)}
-        className="rounded-md p-1.5 text-ink-400 transition-colors hover:bg-surface-muted hover:text-ink-700"
-      >
-        <MoreVertical size={16} strokeWidth={2} />
-      </button>
-      {open ? (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-lg border border-ink-200 bg-white py-1 shadow-elevated">
-            {children(() => setOpen(false))}
-          </div>
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-function MenuItem({
-  icon,
-  onClick,
+/**
+ * Circular icon button for a row action. Rendered inline (no absolute-positioned
+ * dropdown), so it never triggers overflow in the table's scroll container.
+ */
+function CircleAction({
+  title,
   danger,
+  disabled,
+  onClick,
   children,
 }: {
-  icon: ReactNode;
-  onClick: () => void;
+  title: string;
   danger?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
   children: ReactNode;
 }) {
   return (
     <button
       type="button"
+      title={title}
+      aria-label={title}
+      disabled={disabled}
       onClick={onClick}
-      className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors ${
+      className={`flex h-8 w-8 items-center justify-center rounded-full border border-ink-200 transition-colors disabled:opacity-40 ${
         danger
-          ? "text-status-invalid hover:bg-status-invalidBg"
-          : "text-ink-700 hover:bg-surface-muted"
+          ? "text-status-invalid hover:border-status-invalid/30 hover:bg-status-invalidBg"
+          : "text-ink-500 hover:bg-surface-muted hover:text-ink-900"
       }`}
     >
-      {icon}
       {children}
     </button>
   );
@@ -250,44 +233,36 @@ export function UsersManager({ currentEmail }: { currentEmail: string }) {
                         {isMe ? (
                           <span className="text-xs text-ink-400">Editar en “Perfil”</span>
                         ) : (
-                          <RowMenu>
-                            {(close) => (
-                              <>
-                                <MenuItem
-                                  icon={<Pencil size={15} strokeWidth={2} />}
-                                  onClick={() => {
-                                    close();
-                                    openEdit(u);
-                                  }}
-                                >
-                                  Editar
-                                </MenuItem>
-                                <MenuItem
-                                  icon={<Power size={15} strokeWidth={2} />}
-                                  onClick={() => {
-                                    close();
-                                    void patch(
-                                      u.id,
-                                      { disabled: !u.disabled },
-                                      u.disabled ? "Usuario habilitado" : "Usuario deshabilitado"
-                                    );
-                                  }}
-                                >
-                                  {u.disabled ? "Habilitar" : "Deshabilitar"}
-                                </MenuItem>
-                                <MenuItem
-                                  icon={<Trash2 size={15} strokeWidth={2} />}
-                                  danger
-                                  onClick={() => {
-                                    close();
-                                    void deleteUser(u);
-                                  }}
-                                >
-                                  Eliminar
-                                </MenuItem>
-                              </>
-                            )}
-                          </RowMenu>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <CircleAction
+                              title="Editar"
+                              disabled={busyId === u.id}
+                              onClick={() => openEdit(u)}
+                            >
+                              <Pencil size={15} strokeWidth={2} />
+                            </CircleAction>
+                            <CircleAction
+                              title={u.disabled ? "Habilitar" : "Deshabilitar"}
+                              disabled={busyId === u.id}
+                              onClick={() =>
+                                void patch(
+                                  u.id,
+                                  { disabled: !u.disabled },
+                                  u.disabled ? "Usuario habilitado" : "Usuario deshabilitado"
+                                )
+                              }
+                            >
+                              <Power size={15} strokeWidth={2} />
+                            </CircleAction>
+                            <CircleAction
+                              title="Eliminar"
+                              danger
+                              disabled={busyId === u.id}
+                              onClick={() => void deleteUser(u)}
+                            >
+                              <Trash2 size={15} strokeWidth={2} />
+                            </CircleAction>
+                          </div>
                         )}
                       </td>
                     </tr>
