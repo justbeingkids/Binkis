@@ -1,78 +1,113 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardHeader, CardTitle, CardDescription, CardBody } from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
+import { useState, type ReactNode } from "react";
+import { Mail, Lock, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
+import { cn } from "@/lib/cn";
 
-export function AccountSettings({ currentEmail }: { currentEmail: string }) {
+function initialsFromEmail(email: string): string {
+  const local = email.split("@")[0] ?? "";
+  const letters = local.replace(/[^a-zA-Z]/g, "");
+  return (letters.slice(0, 2) || email.slice(0, 2) || "?").toUpperCase();
+}
+
+/** Icon-prefixed input used across the Perfil card, with an optional trailing slot. */
+function Field({
+  icon,
+  label,
+  right,
+  error,
+  className,
+  ...props
+}: {
+  icon: ReactNode;
+  label: string;
+  right?: ReactNode;
+  error?: string;
+} & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-sm font-medium text-ink-700">{label}</label>
+      <div className="relative">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-400">
+          {icon}
+        </span>
+        <input
+          className={cn(
+            "h-11 w-full rounded-lg border bg-white pl-10 pr-10 text-sm text-ink-900 placeholder:text-ink-300",
+            "focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent",
+            "disabled:bg-surface-muted disabled:text-ink-400",
+            error ? "border-status-invalid" : "border-ink-200",
+            className
+          )}
+          {...props}
+        />
+        {right ? <span className="absolute right-2 top-1/2 -translate-y-1/2">{right}</span> : null}
+      </div>
+      {error ? <span className="text-xs text-status-invalid">{error}</span> : null}
+    </div>
+  );
+}
+
+export function AccountSettings({
+  currentEmail,
+  isSuper = false,
+}: {
+  currentEmail: string;
+  isSuper?: boolean;
+}) {
   const toast = useToast();
-  const [step, setStep] = useState<"verify" | "edit">("verify");
-  const [curEmail, setCurEmail] = useState(currentEmail);
-  const [curPassword, setCurPassword] = useState("");
+  const [email, setEmail] = useState(currentEmail);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function post(payload: Record<string, string>) {
-    const res = await fetch("/api/admin/account", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json().catch(() => ({}));
-    return { ok: res.ok, data } as const;
-  }
-
-  async function handleVerify(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      const { ok, data } = await post({ currentEmail: curEmail, currentPassword: curPassword });
-      if (!ok) {
-        setError(data.error ?? "No se pudo verificar");
-        return;
-      }
-      setNewEmail(data.email ?? curEmail);
-      setNewPassword("");
-      setConfirmPassword("");
-      setStep("edit");
-    } catch {
-      setError("Error de red");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [pwError, setPwError] = useState<string | null>(null);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    if (newPassword && newPassword !== confirmPassword) {
-      setError("Las contraseñas no coinciden");
+    setPwError(null);
+
+    if (!currentPassword) {
+      setPwError("Ingresa tu contraseña actual para confirmar.");
       return;
     }
+    if (!newEmail.trim() && !newPassword) {
+      toast.info("Nada que cambiar", "Escribe un nuevo correo o una nueva contraseña.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const { ok, data } = await post({
-        currentEmail: curEmail,
-        currentPassword: curPassword,
-        newEmail,
-        newPassword,
+      const res = await fetch("/api/admin/account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentEmail: email,
+          currentPassword,
+          newEmail: newEmail.trim(),
+          newPassword,
+        }),
       });
-      if (!ok) {
-        setError(data.error ?? "No se pudo guardar");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 401) {
+          setPwError(data.error ?? "Contraseña actual incorrecta.");
+        } else {
+          toast.error("No se pudieron guardar los cambios", data.error);
+        }
         return;
       }
-      if (data.email) setCurEmail(data.email);
+      if (data.email) setEmail(data.email);
+      setCurrentPassword("");
+      setNewEmail("");
       setNewPassword("");
-      setConfirmPassword("");
       toast.success("Cambios guardados");
     } catch {
-      setError("Error de red");
+      toast.error("Error de red", "No se pudieron guardar los cambios");
     } finally {
       setLoading(false);
     }
@@ -81,86 +116,82 @@ export function AccountSettings({ currentEmail }: { currentEmail: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Mi cuenta</CardTitle>
-        <CardDescription>
-          {step === "verify"
-            ? "Confirma tu correo y contraseña actuales para poder editarlos."
-            : `Editando ${curEmail}. Deja un campo vacío para no cambiarlo.`}
-        </CardDescription>
+        <CardTitle>Perfil</CardTitle>
       </CardHeader>
-      <CardBody>
-        {step === "verify" ? (
-          <form onSubmit={handleVerify} className="flex max-w-sm flex-col gap-4">
-            <Input
-              label="Correo actual"
-              type="email"
-              value={curEmail}
-              onChange={(e) => setCurEmail(e.target.value)}
-              required
-              autoComplete="username"
-              disabled={loading}
-            />
-            <Input
-              label="Password actual"
-              type="password"
-              value={curPassword}
-              onChange={(e) => setCurPassword(e.target.value)}
-              error={error ?? undefined}
-              required
-              autoComplete="current-password"
-              disabled={loading}
-            />
-            <Button type="submit" loading={loading}>Continuar</Button>
-          </form>
-        ) : (
-          <form onSubmit={handleSave} className="flex max-w-sm flex-col gap-4">
-            <Input
-              label="Nuevo correo"
-              type="email"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              disabled={loading}
-              autoComplete="off"
-            />
-            <Input
-              label="Nuevo password"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              hint="Déjalo vacío para mantener el actual"
-              disabled={loading}
-              autoComplete="new-password"
-            />
-            <Input
-              label="Confirmar nuevo password"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              error={error ?? undefined}
-              disabled={loading}
-              autoComplete="new-password"
-            />
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button type="submit" loading={loading} className="w-full sm:w-auto">
-                Guardar cambios
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={loading}
-                className="w-full sm:w-auto"
-                onClick={() => {
-                  setStep("verify");
-                  setCurPassword("");
-                  setConfirmPassword("");
-                  setError(null);
-                }}
-              >
-                Cancelar
-              </Button>
+      <CardBody className="p-6">
+        <form onSubmit={handleSave} className="flex flex-col gap-6 lg:flex-row lg:gap-8">
+          {/* Identity */}
+          <div className="flex items-center gap-4 lg:w-60 lg:shrink-0">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-surface-muted text-lg font-semibold tracking-tight text-ink-500">
+              {initialsFromEmail(email)}
             </div>
-          </form>
-        )}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-ink-900">{email}</p>
+              {isSuper ? (
+                <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-amber-soft px-2.5 py-0.5 text-xs font-medium text-amber">
+                  <ShieldCheck size={12} strokeWidth={2.5} />
+                  Super admin
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="hidden w-px shrink-0 bg-ink-100 lg:block" />
+
+          {/* Editable fields */}
+          <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-end">
+            <div className="flex flex-1 flex-col gap-4">
+              <Field
+                icon={<Lock size={16} strokeWidth={2} />}
+                label="Contraseña actual"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => {
+                  setCurrentPassword(e.target.value);
+                  setPwError(null);
+                }}
+                placeholder="Requerida para confirmar"
+                autoComplete="current-password"
+                disabled={loading}
+                error={pwError ?? undefined}
+              />
+              <Field
+                icon={<Mail size={16} strokeWidth={2} />}
+                label="Nuevo correo electrónico"
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="tu@ejemplo.com"
+                autoComplete="off"
+                disabled={loading}
+              />
+              <Field
+                icon={<Lock size={16} strokeWidth={2} />}
+                label="Nueva contraseña"
+                type={showPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Mínimo 4 caracteres"
+                autoComplete="new-password"
+                disabled={loading}
+                right={
+                  <button
+                    type="button"
+                    aria-label={showPassword ? "Ocultar" : "Mostrar"}
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="rounded p-1.5 text-ink-400 hover:text-ink-700"
+                  >
+                    {showPassword ? <EyeOff size={16} strokeWidth={2} /> : <Eye size={16} strokeWidth={2} />}
+                  </button>
+                }
+              />
+            </div>
+            <Button type="submit" loading={loading} size="lg" className="sm:self-center">
+              Guardar cambios
+            </Button>
+          </div>
+        </form>
       </CardBody>
     </Card>
   );

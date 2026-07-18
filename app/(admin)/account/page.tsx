@@ -16,11 +16,10 @@ export default async function AccountPage() {
     <>
       <Topbar
         title="Mi cuenta"
-        description="Cambia tu correo y contraseña. Para hacerlo, confirma tus datos actuales."
-        meta={isSuper ? <span className="text-xs font-medium text-amber">Super admin</span> : undefined}
+        description="Gestiona tu perfil, miembros del equipo y actividad de la cuenta."
       />
       <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
-        <AccountSettings currentEmail={email} />
+        <AccountSettings currentEmail={email} isSuper={isSuper} />
         {isSuper ? <UsersManager currentEmail={email} /> : null}
         <AuditLog />
       </div>
