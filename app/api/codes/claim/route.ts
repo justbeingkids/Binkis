@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { markCodeClaimed } from "@/lib/supabase/codes";
-import { assignCharacter } from "@/lib/supabase/characters";
 import { addPoints } from "@/lib/supabase/loyalty";
 import { isValidCodeFormat } from "@/lib/codes/generator";
 import { config } from "@/lib/config";
@@ -54,19 +53,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Winner confirmed for this email. Assign a character (idempotent: a code
-    // keeps the same character across re-submits) so we can reveal the prize.
-    let character: { id: string; name: string } | null = null;
-    try {
-      character = await assignCharacter(code);
-    } catch (assignErr) {
-      // Never fail the claim over prize assignment (e.g. inventory exhausted);
-      // the winner is recorded and an admin can reconcile stock manually.
-      console.error("assignCharacter failed:", assignErr);
-    }
-
-    // Award the one-time winner loyalty bonus exactly once (only on the call
-    // that actually flipped the code to claimed).
+    // The prize (character) is awarded at the win-confirmation scan
+    // (/api/codes/validate), not here — this step only records the winner's
+    // shipping details and the one-time loyalty bonus, granted exactly once on
+    // the call that actually flipped the code to claimed.
     if (justClaimed && config.winnerBonusPoints > 0) {
       try {
         await addPoints(updated.winnerEmail ?? winner.email, config.winnerBonusPoints, "winner_bonus");
@@ -75,7 +65,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ ok: true, character });
+    return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal error";
     return NextResponse.json({ error: message }, { status: 500 });

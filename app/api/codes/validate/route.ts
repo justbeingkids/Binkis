@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { findCode } from "@/lib/supabase/codes";
+import { assignCharacter } from "@/lib/supabase/characters";
 import { isValidCodeFormat } from "@/lib/codes/generator";
 import { recordScan } from "@/lib/supabase/scans";
 import { extractGeo } from "@/lib/geo";
@@ -36,6 +37,19 @@ export async function GET(request: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal error";
     return NextResponse.json({ error: message }, { status: 500 });
+  }
+
+  // Award the prize the moment the win is confirmed. assign_character is
+  // idempotent per code (a re-scan returns the same character), so repeated
+  // scans always reveal the same prize. A prize-assignment failure (e.g. stock
+  // exhausted) must never break the win result the user is waiting for.
+  if (result.state === "valid") {
+    try {
+      const character = await assignCharacter(code);
+      if (character) result.character = character;
+    } catch (awardErr) {
+      console.error("assignCharacter (win) failed:", awardErr);
+    }
   }
 
   // Record EVERY scan request (winner or not) with coarse geo + user-agent.

@@ -32,6 +32,8 @@ export interface ValidationResult {
   state: "valid" | "claimed" | "invalid";
   code: string;
   claimedAt?: string | null;
+  /** Prize awarded at win-confirmation; present only on a fresh winning scan. */
+  character?: AssignedCharacter | null;
 }
 
 export interface WinnerSubmission {
