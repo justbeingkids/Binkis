@@ -160,6 +160,29 @@ create index if not exists idx_scan_requests_created_at on public.scan_requests 
 create index if not exists idx_scan_requests_code on public.scan_requests (code);
 create index if not exists idx_scan_requests_result on public.scan_requests (result);
 
+-- 8c) customers: one row per person (identity), keyed by email. A winning code
+--     links to its owner via codes.customer_id (set at claim). One customer can
+--     own many winning codes -> many characters. tier holds the "special
+--     treatment" level (thresholds applied later); shopify_customer_id is filled
+--     when Shopify connects.
+create table if not exists public.customers (
+  id uuid primary key default gen_random_uuid(),
+  email text unique not null,
+  name text,
+  phone text,
+  address text,
+  tier text not null default 'bronze',
+  shopify_customer_id text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_customers_email on public.customers (email);
+
+-- Link a winning code to its owning customer (set at claim).
+alter table public.codes add column if not exists customer_id uuid references public.customers(id);
+create index if not exists idx_codes_customer on public.codes (customer_id);
+
 -- 9) Functions ---------------------------------------------------------------
 
 -- Recompute every character's stored win_probability from weight * remaining,
@@ -247,6 +270,34 @@ begin
   return v_balance;
 end $$;
 
+-- Upsert the customer (by email) with their latest contact details and link the
+-- given winning code to them. Called at claim, once the winner's identity is
+-- known. Idempotent: re-claiming by the same email just refreshes the profile.
+create or replace function public.link_customer(
+  p_code text,
+  p_email text,
+  p_name text,
+  p_phone text,
+  p_address text
+) returns uuid language plpgsql as $$
+declare
+  v_email text := lower(trim(p_email));
+  v_customer_id uuid;
+begin
+  insert into public.customers(email, name, phone, address)
+    values (v_email, p_name, p_phone, p_address)
+  on conflict (email) do update
+    set name = coalesce(nullif(excluded.name, ''), customers.name),
+        phone = coalesce(nullif(excluded.phone, ''), customers.phone),
+        address = coalesce(nullif(excluded.address, ''), customers.address),
+        updated_at = now()
+  returning id into v_customer_id;
+
+  update public.codes set customer_id = v_customer_id where code = p_code;
+
+  return v_customer_id;
+end $$;
+
 -- 10) Row Level Security: lock every table to service_role only.
 --    Our API routes use the service_role key so they bypass RLS;
 --    the anon key (used in the browser) cannot read or write anything.
@@ -259,5 +310,6 @@ alter table public.characters enable row level security;
 alter table public.loyalty_accounts enable row level security;
 alter table public.loyalty_transactions enable row level security;
 alter table public.scan_requests enable row level security;
+alter table public.customers enable row level security;
 
 -- No policies = anon is denied. Service role bypasses RLS automatically.

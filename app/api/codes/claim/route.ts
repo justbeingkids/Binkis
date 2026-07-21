@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { markCodeClaimed } from "@/lib/supabase/codes";
 import { addPoints } from "@/lib/supabase/loyalty";
+import { linkCustomer } from "@/lib/supabase/customers";
 import { isValidCodeFormat } from "@/lib/codes/generator";
 import { config } from "@/lib/config";
 
@@ -51,6 +52,15 @@ export async function POST(request: Request) {
         { error: "Codigo ya fue reclamado" },
         { status: 409 }
       );
+    }
+
+    // Record/refresh the customer profile (by email) and link this winning code
+    // to them, so one person owns all their winning codes -> characters. Never
+    // fail the claim over this.
+    try {
+      await linkCustomer(code, winner);
+    } catch (linkErr) {
+      console.error("linkCustomer failed:", linkErr);
     }
 
     // The prize (character) is awarded at the win-confirmation scan
