@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_COOKIE_NAME } from "@/lib/admin-auth";
 import { verifySession } from "@/lib/session";
 
-const ADMIN_PROTECTED_PREFIXES = ["/codes", "/generate", "/verify", "/winners", "/card", "/lottery", "/characters", "/account", "/escaneos", "/clientes"];
+const ADMIN_PROTECTED_PREFIXES = ["/codes", "/generate", "/verify", "/winners", "/card", "/lottery", "/characters", "/account", "/escaneos", "/clientes", "/puntos"];
 
 function isAdminPath(pathname: string): boolean {
   if (pathname === "/") return true;

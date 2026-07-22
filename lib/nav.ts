@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   Trophy,
   Contact,
+  Star,
   ScanLine,
   Settings,
   type LucideIcon,
@@ -32,6 +33,7 @@ export const navItems: NavItem[] = [
   { href: "/verify", label: "Verificar", icon: ShieldCheck },
   { href: "/winners", label: "Ganadores", icon: Trophy },
   { href: "/clientes", label: "Clientes", icon: Contact },
+  { href: "/puntos", label: "Puntos", icon: Star },
   { href: "/escaneos", label: "Escaneos", icon: ScanLine },
   { href: "/account", label: "Cuenta", icon: Settings },
 ];
