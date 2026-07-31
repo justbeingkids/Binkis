@@ -26,7 +26,6 @@ export interface CustomerRow {
   name: string | null;
   phone: string | null;
   address: string | null;
-  tier: string;
   createdAt: string;
   /** Number of winning codes this customer has claimed. */
   winCount: number;
@@ -40,7 +39,6 @@ type RawCustomer = {
   name: string | null;
   phone: string | null;
   address: string | null;
-  tier: string;
   created_at: string;
   codes: Array<{ code: string; characters: { name: string } | null }> | null;
 };
@@ -53,7 +51,7 @@ export async function getCustomers(): Promise<CustomerRow[]> {
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await supabase
       .from("customers")
-      .select("id,email,name,phone,address,tier,created_at,codes(code,characters(name))")
+      .select("id,email,name,phone,address,created_at,codes(code,characters(name))")
       .order("created_at", { ascending: false })
       .range(from, from + pageSize - 1);
     if (error) throw new Error(`getCustomers failed: ${error.message}`);
@@ -69,7 +67,6 @@ export async function getCustomers(): Promise<CustomerRow[]> {
       name: c.name,
       phone: c.phone,
       address: c.address,
-      tier: c.tier,
       createdAt: c.created_at,
       winCount: codes.length,
       characters: codes.map((x) => x.characters?.name).filter(Boolean) as string[],

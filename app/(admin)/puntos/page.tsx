@@ -1,18 +1,22 @@
-import { Star, Coins, Wallet, Gauge } from "lucide-react";
+import { Star, Coins, Award, Crown } from "lucide-react";
 import { Topbar } from "@/components/admin/Topbar";
 import { MetricCard } from "@/components/admin/MetricCard";
 import { LoyaltyTable } from "@/components/admin/LoyaltyTable";
 import { getLoyaltyAccounts } from "@/lib/supabase/loyalty";
+import { TIERS } from "@/lib/loyalty-tiers";
 import { formatNumber } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const COLLECTOR = TIERS[0].points; // 20
+const FOUNDER = TIERS[2].points; // 40
+
 export default async function PointsPage() {
   const accounts = await getLoyaltyAccounts();
   const totalPoints = accounts.reduce((sum, a) => sum + a.points, 0);
-  const withBalance = accounts.filter((a) => a.points > 0).length;
-  const avg = accounts.length > 0 ? Math.round(totalPoints / accounts.length) : 0;
+  const collectors = accounts.filter((a) => a.points >= COLLECTOR).length;
+  const founders = accounts.filter((a) => a.points >= FOUNDER).length;
 
   return (
     <div className="flex h-full flex-col">
@@ -36,16 +40,16 @@ export default async function PointsPage() {
             hint="suma de todos los saldos"
           />
           <MetricCard
-            label="Con saldo"
-            value={formatNumber(withBalance)}
-            icon={<Wallet size={16} strokeWidth={2} />}
-            hint="saldo mayor a cero"
+            label="Collectors"
+            value={formatNumber(collectors)}
+            icon={<Award size={16} strokeWidth={2} />}
+            hint={`${COLLECTOR}+ puntos`}
           />
           <MetricCard
-            label="Promedio"
-            value={formatNumber(avg)}
-            icon={<Gauge size={16} strokeWidth={2} />}
-            hint="puntos por cuenta"
+            label="Founder Reserve"
+            value={formatNumber(founders)}
+            icon={<Crown size={16} strokeWidth={2} />}
+            hint={`${FOUNDER}+ puntos`}
           />
         </section>
 

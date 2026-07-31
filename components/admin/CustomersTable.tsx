@@ -1,57 +1,27 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, ChevronDown, X, Users } from "lucide-react";
+import { Search, X, Users } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Table, THead, TBody, TR, TH, TD, EmptyState } from "@/components/ui/Table";
 import { Pagination } from "@/components/ui/Pagination";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import type { CustomerRow } from "@/lib/supabase/customers";
 
-type TierFilter = "all" | "bronze" | "silver" | "gold";
-
-const TIER_OPTIONS: { value: TierFilter; label: string }[] = [
-  { value: "all", label: "Todos los niveles" },
-  { value: "bronze", label: "Bronze" },
-  { value: "silver", label: "Silver" },
-  { value: "gold", label: "Gold" },
-];
-
-function tierBadge(tier: string) {
-  const t = (tier || "bronze").toLowerCase();
-  const label = t.charAt(0).toUpperCase() + t.slice(1);
-  if (t === "gold") return <Badge tone="warning">{label}</Badge>;
-  if (t === "silver") return <Badge tone="info">{label}</Badge>;
-  return <Badge tone="neutral">{label}</Badge>;
-}
-
 export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
   const [query, setQuery] = useState("");
-  const [tier, setTier] = useState<TierFilter>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  const hasFilters = query.trim() !== "" || tier !== "all";
-
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return customers.filter((c) => {
-      if (tier !== "all" && (c.tier || "bronze").toLowerCase() !== tier) return false;
-      if (q) {
-        const hay = `${c.name ?? ""} ${c.email} ${c.phone ?? ""}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [customers, query, tier]);
+    if (!q) return customers;
+    return customers.filter((c) =>
+      `${c.name ?? ""} ${c.email} ${c.phone ?? ""}`.toLowerCase().includes(q)
+    );
+  }, [customers, query]);
 
   const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
-
-  function clearFilters() {
-    setQuery("");
-    setTier("all");
-    setPage(1);
-  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
@@ -70,28 +40,13 @@ export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
             className="h-10 w-full rounded-lg border border-ink-200 bg-white pl-9 pr-3 text-sm text-ink-900 placeholder:text-ink-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-brand/15"
           />
         </div>
-        <div className="relative">
-          <select
-            aria-label="Filtrar por nivel"
-            value={tier}
-            onChange={(e) => {
-              setTier(e.target.value as TierFilter);
-              setPage(1);
-            }}
-            className="h-10 appearance-none rounded-lg border border-ink-200 bg-white pl-3 pr-9 text-sm text-ink-700 hover:border-ink-300 focus:border-accent focus:outline-none focus:ring-2 focus:ring-brand/15"
-          >
-            {TIER_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-400" />
-        </div>
-        {hasFilters ? (
+        {query ? (
           <button
             type="button"
-            onClick={clearFilters}
+            onClick={() => {
+              setQuery("");
+              setPage(1);
+            }}
             className="inline-flex h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-ink-500 hover:bg-surface-muted hover:text-ink-900"
           >
             <X size={15} strokeWidth={2} />
@@ -111,7 +66,6 @@ export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
             <TH>Contacto</TH>
             <TH className="text-right">Premios</TH>
             <TH>Personajes</TH>
-            <TH>Nivel</TH>
             <TH className="text-right">Registrado</TH>
           </THead>
           <TBody>
@@ -143,14 +97,13 @@ export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
                       </div>
                     )}
                   </TD>
-                  <TD>{tierBadge(c.tier)}</TD>
                   <TD className="text-right tabular-nums text-ink-500">{formatDateTime(c.createdAt)}</TD>
                 </TR>
               );
             })}
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={5}>
                   <EmptyState>
                     <div className="flex flex-col items-center gap-3 text-ink-500">
                       <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-muted">
@@ -166,7 +119,7 @@ export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
           {filtered.length > pageSize ? (
             <tfoot>
               <tr>
-                <td colSpan={6} className="p-0">
+                <td colSpan={5} className="p-0">
                   <Pagination
                     page={page}
                     pageSize={pageSize}

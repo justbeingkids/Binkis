@@ -66,24 +66,37 @@ scans, and points.
 
 ---
 
-## 🟡 Pending — needs client decisions
+## Loyalty program — CONFIRMED by David Vargas (2026-07-31)
 
-### Founders Reserve / customer tiers ("special treatment")
-Brochure defines: **20 Binkis Points = 1 Limited Edition**, **40 points (= 2 LE)
-→ Founders Reserve** (early access to buy one of the 77 pieces). This IS the
-"special treatment for repeat winners." The `customers.tier` column + Clientes
-tier filter are already wired, waiting on:
-1. **40 points = threshold (held, unlocks access) or cost (spent/deducted)?**
-2. Confirm: backend marks a customer **eligible**; the actual early-buy purchase
-   gate lives in the **store (Shopify)**.
-→ Then wire eligibility into `link_customer()` and surface on Clientes/Puntos.
+**Model:** points-based collector tiers, earned by **purchases only**.
+- **Earning:** 1 point per Binkis piece bought online; **complete collection =
+  13 points (8 + 5 bonus)**. Winning a Limited Edition grants **NO points** — its
+  value is the rare find / an exclusive experience.
+- **Tiers** (thresholds + permanent, cumulative benefits):
+  - **Collector — 20 pts** → free classic BINKIS figure
+  - **Elite Collector — 30 pts** → Premium Display Case at $49 MXN (1 piece)
+  - **Founder Reserve — 40 pts** → lifetime VIP / permanent Founders Reserve
+- **Split:** backend owns **balance, level, unlocked benefits, eligibility**;
+  **Shopify** only applies the discount / enables the free product.
 
-### Winner bonus value
-Brochure says **20**; `WINNER_BONUS_POINTS` currently defaults to **5**. Set to
-20 once design is finalized (one env/config change in `lib/config.ts`).
+### ✅ Done for this model
+- `lib/loyalty-tiers.ts` — single source of truth (`TIERS` + `tierForPoints()`
+  → current tier, unlocked benefits, next tier, points-to-next).
+- **Winner bonus removed** from the claim route (points are purchases-only);
+  `WINNER_BONUS_POINTS` config deleted.
+- Puntos admin view shows the computed **Nivel** + Collectors / Founder KPIs.
+- Removed the old (win-count) tier column/filter from Clientes (tier is
+  point-based now; `customers.tier` column is legacy/unused).
 
-### Loyalty earning rules
-Beyond the winner bonus — points per which actions? (business rule).
+### 🟡 Remaining (needs Shopify)
+- **Earning trigger:** a Shopify **order webhook** → an inbound endpoint that
+  calls `addPoints(email, n, "purchase")`. Needs the Shopify integration + a
+  way to authenticate the webhook.
+- **Loyalty status endpoint** (the store's contract): `email → { points, tier,
+  benefits, eligibility }`, for Shopify to read and apply perks. Needs a store-
+  facing auth scheme (API key), so deferred with the Shopify work.
+- **Redemptions** (free figure / display-case price / VIP) happen in Shopify;
+  backend exposes eligibility.
 
 ### Factory export QR URL
 `app/api/codes/export/route.ts` prints `/claim?code=`. Canonical customer URL may

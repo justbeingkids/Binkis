@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { markCodeClaimed } from "@/lib/supabase/codes";
-import { addPoints } from "@/lib/supabase/loyalty";
 import { linkCustomer } from "@/lib/supabase/customers";
 import { isValidCodeFormat } from "@/lib/codes/generator";
-import { config } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +41,7 @@ export async function POST(request: Request) {
     if (!result) {
       return NextResponse.json({ error: "Codigo no existe" }, { status: 404 });
     }
-    const { record: updated, justClaimed } = result;
+    const { record: updated } = result;
     if (!updated.isWinner) {
       return NextResponse.json({ error: "Este codigo no es ganador" }, { status: 400 });
     }
@@ -63,18 +61,11 @@ export async function POST(request: Request) {
       console.error("linkCustomer failed:", linkErr);
     }
 
-    // The prize (character) is awarded at the win-confirmation scan
-    // (/api/codes/validate), not here — this step only records the winner's
-    // shipping details and the one-time loyalty bonus, granted exactly once on
-    // the call that actually flipped the code to claimed.
-    if (justClaimed && config.winnerBonusPoints > 0) {
-      try {
-        await addPoints(updated.winnerEmail ?? winner.email, config.winnerBonusPoints, "winner_bonus");
-      } catch (pointsErr) {
-        console.error("addPoints (winner_bonus) failed:", pointsErr);
-      }
-    }
-
+    // No loyalty points are granted here: per the client's model, points are
+    // earned by PURCHASES only, not by winning a Limited Edition. The prize
+    // (character) was already awarded at the win-confirmation scan
+    // (/api/codes/validate); this step only records the winner's shipping
+    // details.
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal error";

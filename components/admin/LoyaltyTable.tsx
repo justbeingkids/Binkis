@@ -2,10 +2,20 @@
 
 import { useMemo, useState } from "react";
 import { Search, X, Star } from "lucide-react";
+import { Badge } from "@/components/ui/Badge";
 import { Table, THead, TBody, TR, TH, TD, EmptyState } from "@/components/ui/Table";
 import { Pagination } from "@/components/ui/Pagination";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { tierForPoints } from "@/lib/loyalty-tiers";
 import type { LoyaltyAccountRow } from "@/lib/supabase/loyalty";
+
+function tierBadge(points: number) {
+  const { current } = tierForPoints(points);
+  if (!current) return <span className="text-ink-300">—</span>;
+  if (current.key === "founder") return <Badge tone="warning">{current.name}</Badge>;
+  if (current.key === "elite") return <Badge tone="info">{current.name}</Badge>;
+  return <Badge tone="neutral">{current.name}</Badge>;
+}
 
 export function LoyaltyTable({ accounts }: { accounts: LoyaltyAccountRow[] }) {
   const [query, setQuery] = useState("");
@@ -61,6 +71,7 @@ export function LoyaltyTable({ accounts }: { accounts: LoyaltyAccountRow[] }) {
           <THead>
             <TH>Correo</TH>
             <TH className="text-right">Puntos</TH>
+            <TH>Nivel</TH>
             <TH className="text-right">Actualizado</TH>
           </THead>
           <TBody>
@@ -68,12 +79,13 @@ export function LoyaltyTable({ accounts }: { accounts: LoyaltyAccountRow[] }) {
               <TR key={a.email} striped={idx % 2 === 1}>
                 <TD className="font-medium text-ink-900">{a.email}</TD>
                 <TD className="text-right tabular-nums font-semibold text-ink-900">{formatNumber(a.points)}</TD>
+                <TD>{tierBadge(a.points)}</TD>
                 <TD className="text-right tabular-nums text-ink-500">{formatDateTime(a.updatedAt)}</TD>
               </TR>
             ))}
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={3}>
+                <td colSpan={4}>
                   <EmptyState>
                     <div className="flex flex-col items-center gap-3 text-ink-500">
                       <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-muted">
@@ -89,7 +101,7 @@ export function LoyaltyTable({ accounts }: { accounts: LoyaltyAccountRow[] }) {
           {filtered.length > pageSize ? (
             <tfoot>
               <tr>
-                <td colSpan={3} className="p-0">
+                <td colSpan={4} className="p-0">
                   <Pagination
                     page={page}
                     pageSize={pageSize}
