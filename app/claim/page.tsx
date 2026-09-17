@@ -5,6 +5,9 @@ import { findCode } from "@/lib/supabase/codes";
 import { isValidCodeFormat } from "@/lib/codes/generator";
 import { formatDateTime } from "@/lib/format";
 import { publicEnv } from "@/lib/env";
+import { headers } from "next/headers";
+import { recordScan } from "@/lib/supabase/scans";
+import { extractGeo } from "@/lib/geo";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -19,6 +22,26 @@ export default async function ClaimPage({ searchParams }: PageProps) {
 
   const validFormat = isValidCodeFormat(cleaned);
   const record = validFormat ? await findCode(cleaned) : null;
+
+  // The printed QR opens this page directly, so this is where scans happen.
+  // Logging is read-only with respect to the code and must never break the page.
+  try {
+    const h = await headers();
+    const geo = extractGeo(new Request("https://scan.local/claim", { headers: h }));
+    await recordScan({
+      code: cleaned.slice(0, 64),
+      result: !record || !record.isWinner ? "invalid" : record.claimed ? "claimed" : "valid",
+      isWinner: record ? record.isWinner : null,
+      codeExists: Boolean(record),
+      ip: geo.ip,
+      country: geo.country,
+      region: geo.region,
+      city: geo.city,
+      userAgent: h.get("user-agent") ?? "",
+    });
+  } catch (logErr) {
+    console.error("recordScan (claim page) failed:", logErr);
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface-base px-4 py-10">
