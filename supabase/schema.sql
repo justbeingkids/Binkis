@@ -298,6 +298,59 @@ begin
   return v_customer_id;
 end $$;
 
+-- 9b) Purchase points from Shopify orders/paid webhooks.
+--     One row per Shopify order id: the primary key is what makes a retried
+--     webhook a no-op instead of a second award.
+create table if not exists public.loyalty_order_events (
+  order_id text primary key,
+  email text not null,
+  points integer not null,
+  shopify_customer_id text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_customers_shopify_id on public.customers (shopify_customer_id);
+
+-- Record the order and add its points in one transaction. Returns
+-- awarded = false (and the unchanged balance) when the order was seen before.
+create or replace function public.award_order_points(
+  p_order_id text,
+  p_email text,
+  p_points integer,
+  p_shopify_customer_id text
+) returns table(awarded boolean, balance integer) language plpgsql as $$
+declare
+  v_email text := lower(trim(p_email));
+  v_balance integer;
+begin
+  insert into public.loyalty_order_events(order_id, email, points, shopify_customer_id)
+    values (p_order_id, v_email, greatest(p_points, 0), p_shopify_customer_id)
+  on conflict (order_id) do nothing;
+
+  if not found then
+    select la.points into v_balance from public.loyalty_accounts la where la.email = v_email;
+    return query select false, coalesce(v_balance, 0);
+    return;
+  end if;
+
+  if p_points > 0 then
+    v_balance := public.add_loyalty_points(v_email, p_points, 'purchase:' || p_order_id);
+  else
+    select la.points into v_balance from public.loyalty_accounts la where la.email = v_email;
+  end if;
+
+  -- Remember which Shopify customer this email is, for the App Proxy lookup.
+  if p_shopify_customer_id is not null then
+    insert into public.customers(email, shopify_customer_id)
+      values (v_email, p_shopify_customer_id)
+    on conflict (email) do update
+      set shopify_customer_id = excluded.shopify_customer_id,
+          updated_at = now();
+  end if;
+
+  return query select true, coalesce(v_balance, 0);
+end $$;
+
 -- 10) Row Level Security: lock every table to service_role only.
 --    Our API routes use the service_role key so they bypass RLS;
 --    the anon key (used in the browser) cannot read or write anything.
@@ -311,5 +364,6 @@ alter table public.loyalty_accounts enable row level security;
 alter table public.loyalty_transactions enable row level security;
 alter table public.scan_requests enable row level security;
 alter table public.customers enable row level security;
+alter table public.loyalty_order_events enable row level security;
 
 -- No policies = anon is denied. Service role bypasses RLS automatically.

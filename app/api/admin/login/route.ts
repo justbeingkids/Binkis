@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { ADMIN_COOKIE_NAME, adminCookieOptions } from "@/lib/admin-auth";
-import { getServerEnv } from "@/lib/env";
+import { getSessionSecret } from "@/lib/env";
 import { findAdminUser } from "@/lib/supabase/admin-users";
 import { verifyPassword } from "@/lib/password";
 import { signSession, SESSION_TTL_MS } from "@/lib/session";
@@ -81,10 +81,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const env = getServerEnv();
     const token = await signSession(
       { sub: user.email, exp: Date.now() + SESSION_TTL_MS },
-      env.SESSION_SECRET
+      getSessionSecret()
     );
 
     await logLogin("login_success");

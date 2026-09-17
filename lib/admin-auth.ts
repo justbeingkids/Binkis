@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { getServerEnv } from "@/lib/env";
+import { getSessionSecret } from "@/lib/env";
 import { verifySession, type SessionPayload } from "@/lib/session";
 
 export const ADMIN_COOKIE_NAME = "binkis_admin_auth";
@@ -10,11 +10,18 @@ export const ADMIN_COOKIE_NAME = "binkis_admin_auth";
  * Server-only (uses next/headers cookies()).
  */
 export async function getAdminSession(): Promise<SessionPayload | null> {
-  const env = getServerEnv();
+  // No secret configured means nobody is signed in, not a crashed page.
+  let secret: string;
+  try {
+    secret = getSessionSecret();
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
   const store = await cookies();
   const value = store.get(ADMIN_COOKIE_NAME)?.value;
   if (!value) return null;
-  return verifySession(value, env.SESSION_SECRET);
+  return verifySession(value, secret);
 }
 
 export async function isAdminAuthed(): Promise<boolean> {

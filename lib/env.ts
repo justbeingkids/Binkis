@@ -2,13 +2,6 @@ import { z } from "zod";
 
 const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
-  // Optional. If set, must be a real secret (>=16 chars). When absent we fall
-  // back to SUPABASE_SERVICE_ROLE_KEY (see getServerEnv) so the app works on a
-  // host where we cannot add a new env var.
-  SESSION_SECRET: z
-    .string()
-    .min(16, "SESSION_SECRET, if set, must be at least 16 chars")
-    .optional(),
 });
 
 const sheetsLegacyEnvSchema = z.object({
@@ -29,7 +22,6 @@ const publicEnvSchema = z.object({
 export function getServerEnv() {
   const parsed = serverEnvSchema.safeParse({
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-    SESSION_SECRET: process.env.SESSION_SECRET,
   });
 
   if (!parsed.success) {
@@ -42,11 +34,23 @@ export function getServerEnv() {
   const data = parsed.data;
   return {
     SUPABASE_SERVICE_ROLE_KEY: data.SUPABASE_SERVICE_ROLE_KEY,
-    // Effective secret used to sign/verify admin session cookies. Prefer a
-    // dedicated SESSION_SECRET; fall back to the always-present, high-entropy
-    // service-role key so no new env var is needed on the host.
-    SESSION_SECRET: data.SESSION_SECRET ?? data.SUPABASE_SERVICE_ROLE_KEY,
   };
+}
+
+/**
+ * Secret that signs admin session cookies. Required, at least 32 chars, and
+ * never the service-role key: falling back to that key meant anyone holding it
+ * could mint an admin cookie. Kept out of getServerEnv on purpose, so a missing
+ * admin secret locks the admin panel and never takes the public claim page
+ * (which only needs the database) down with it.
+ *   node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+ */
+export function getSessionSecret(): string {
+  const secret = process.env.SESSION_SECRET ?? "";
+  if (secret.length < 32) {
+    throw new Error("SESSION_SECRET is required (at least 32 chars)");
+  }
+  return secret;
 }
 
 export function getSheetsLegacyEnv() {
