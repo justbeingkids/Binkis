@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { markCodeClaimed } from "@/lib/supabase/codes";
 import { linkCustomer } from "@/lib/supabase/customers";
+import { assignCharacter } from "@/lib/supabase/characters";
 import { isValidCodeFormat } from "@/lib/codes/generator";
 
 export const dynamic = "force-dynamic";
@@ -38,18 +39,16 @@ export async function POST(request: Request) {
 
   try {
     const result = await markCodeClaimed(code, winner);
-    if (!result) {
-      return NextResponse.json({ error: "Codigo no existe" }, { status: 404 });
-    }
-    const { record: updated } = result;
-    if (!updated.isWinner) {
+    // The /claim page already tells anyone who scans whether a code exists and
+    // is a winner, so those two answers leak nothing new.
+    if (!result || !result.record.isWinner) {
       return NextResponse.json({ error: "Este codigo no es ganador" }, { status: 400 });
     }
-    if (updated.claimed && updated.winnerEmail !== winner.email) {
-      return NextResponse.json(
-        { error: "Codigo ya fue reclamado" },
-        { status: 409 }
-      );
+    // Only the request that flipped the code wins. Anyone else gets the same
+    // answer whatever email they typed, so this endpoint cannot be used to
+    // test which email registered a code.
+    if (!result.justClaimed) {
+      return NextResponse.json({ error: "Codigo ya fue reclamado" }, { status: 409 });
     }
 
     // Record/refresh the customer profile (by email) and link this winning code
@@ -61,12 +60,21 @@ export async function POST(request: Request) {
       console.error("linkCustomer failed:", linkErr);
     }
 
+    // Award the prize here, on the winner's submit, not on a page load. Chat
+    // apps and antivirus scanners fetch shared links to build previews, so a
+    // GET that assigns stock can hand out a character nobody asked for.
+    // assign_character is idempotent per code and race-safe. A stock problem
+    // must never undo a claim that already succeeded.
+    let character: { id: string; name: string } | null = null;
+    try {
+      character = await assignCharacter(code);
+    } catch (awardErr) {
+      console.error("assignCharacter (claim) failed:", awardErr);
+    }
+
     // No loyalty points are granted here: per the client's model, points are
-    // earned by PURCHASES only, not by winning a Limited Edition. The prize
-    // (character) was already awarded at the win-confirmation scan
-    // (/api/codes/validate); this step only records the winner's shipping
-    // details.
-    return NextResponse.json({ ok: true });
+    // earned by PURCHASES only, not by winning a Limited Edition.
+    return NextResponse.json({ ok: true, character });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Internal error";
     return NextResponse.json({ error: message }, { status: 500 });

@@ -32,7 +32,7 @@ export interface ValidationResult {
   state: "valid" | "claimed" | "invalid";
   code: string;
   claimedAt?: string | null;
-  /** Prize awarded at win-confirmation; present only on a fresh winning scan. */
+  /** Not set by validate any more: the prize is assigned at claim (POST). */
   character?: AssignedCharacter | null;
 }
 
