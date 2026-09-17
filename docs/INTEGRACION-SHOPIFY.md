@@ -2,7 +2,7 @@
 
 Para el equipo de la tienda (MIMIC) y para quien administre Shopify.
 Reemplazar `APP` por el dominio de la app (Vercel), por ejemplo
-`https://binkis-b4ee.vercel.app`.
+`https://binkis.vercel.app`.
 
 ---
 
