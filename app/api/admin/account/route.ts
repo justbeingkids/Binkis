@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdminSession, ADMIN_COOKIE_NAME, adminCookieOptions } from "@/lib/admin-auth";
-import { getServerEnv } from "@/lib/env";
+import { getSessionSecret } from "@/lib/env";
 import { findAdminUser, updateAdminUserEmail, updateAdminUserPassword } from "@/lib/supabase/admin-users";
 import { verifyPassword, hashPassword } from "@/lib/password";
 import { signSession, SESSION_TTL_MS } from "@/lib/session";
@@ -105,10 +105,9 @@ export async function POST(request: Request) {
 
   // If the email changed, the session subject is now stale — re-issue it.
   if (finalEmail !== user.email) {
-    const env = getServerEnv();
     const token = await signSession(
       { sub: finalEmail, exp: Date.now() + SESSION_TTL_MS },
-      env.SESSION_SECRET
+      getSessionSecret()
     );
     res.cookies.set(ADMIN_COOKIE_NAME, token, adminCookieOptions());
   }

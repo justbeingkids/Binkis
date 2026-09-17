@@ -17,10 +17,11 @@ export async function middleware(request: NextRequest) {
   }
 
   const token = request.cookies.get(ADMIN_COOKIE_NAME)?.value;
-  // Must match the secret the login route signs with (see getServerEnv):
-  // prefer SESSION_SECRET, else fall back to the service-role key.
-  const secret = process.env.SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const session = token && secret ? await verifySession(token, secret) : null;
+  // Must match the secret the login route signs with (see getSessionSecret). No
+  // fallback: signing sessions with the service-role key meant anyone holding
+  // that key could mint an admin cookie, and rotating it logged everyone out.
+  const secret = process.env.SESSION_SECRET ?? "";
+  const session = token && secret.length >= 32 ? await verifySession(token, secret) : null;
 
   if (!session) {
     const loginUrl = new URL("/login", request.url);
@@ -33,6 +34,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api|_next|claim|v|login|favicon\\.ico|.*\\.(?:png|jpg|jpeg|svg|gif|ico|webp|css|js|woff|woff2|ttf|map)).*)",
+    "/((?!api|_next|claim|v/|login|favicon\\.ico|.*\\.(?:png|jpg|jpeg|svg|gif|ico|webp|css|js|woff|woff2|ttf|map)).*)",
   ],
 };
