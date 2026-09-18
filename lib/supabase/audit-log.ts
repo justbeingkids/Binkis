@@ -8,7 +8,10 @@ export type AuditAction =
   | "email_changed"
   | "password_changed"
   | "disabled"
-  | "enabled";
+  | "enabled"
+  | "claim_rate_limited"
+  | "claim_reviewed"
+  | "prize_unavailable";
 
 export interface AuditEntry {
   id: string;

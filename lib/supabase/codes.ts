@@ -11,6 +11,10 @@ interface DbCodeRow {
   winner_phone: string | null;
   winner_address: string | null;
   created_at: string;
+  shipping_status?: string | null;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  review_note?: string | null;
   // Present only when the query embeds the character relationship.
   characters?: { name: string } | { name: string }[] | null;
 }
@@ -35,8 +39,16 @@ function rowToRecord(row: DbCodeRow): CodeRecord {
     winnerPhone: row.winner_phone,
     winnerAddress: row.winner_address,
     characterName: characterName(row),
+    shippingStatus: (row.shipping_status as "pending" | "approved" | "rejected") ?? "pending",
+    reviewedAt: row.reviewed_at ?? null,
+    reviewedBy: row.reviewed_by ?? null,
+    reviewNote: row.review_note ?? null,
   };
 }
+
+/** Columns every code read returns. */
+const CODE_COLUMNS =
+  "code,is_winner,claimed,claimed_at,winner_name,winner_email,winner_phone,winner_address,created_at,shipping_status,reviewed_at,reviewed_by,review_note";
 
 export async function getAllCodes(): Promise<CodeRecord[]> {
   const supabase = getAdminClient();
@@ -48,7 +60,7 @@ export async function getAllCodes(): Promise<CodeRecord[]> {
     const { data, error } = await supabase
       .from("codes")
       .select(
-        "code,is_winner,claimed,claimed_at,winner_name,winner_email,winner_phone,winner_address,created_at,characters(name)"
+        `${CODE_COLUMNS},characters(name)`
       )
       .order("created_at", { ascending: true })
       .range(from, from + pageSize - 1);
@@ -104,7 +116,7 @@ export async function findCode(code: string): Promise<CodeRecord | null> {
   const supabase = getAdminClient();
   const { data, error } = await supabase
     .from("codes")
-    .select("code,is_winner,claimed,claimed_at,winner_name,winner_email,winner_phone,winner_address,created_at")
+    .select(CODE_COLUMNS)
     .eq("code", code)
     .maybeSingle();
 
@@ -141,7 +153,7 @@ export async function markCodeClaimed(
     })
     .eq("code", code)
     .eq("claimed", false)
-    .select("code,is_winner,claimed,claimed_at,winner_name,winner_email,winner_phone,winner_address,created_at")
+    .select(CODE_COLUMNS)
     .maybeSingle();
 
   if (error) throw new Error(`Supabase markCodeClaimed failed: ${error.message}`);
@@ -328,4 +340,34 @@ export async function runLottery(winnerCount: number): Promise<{
     alreadyWinners: already,
     remainingAvailable: candidates.length - picked.length,
   };
+}
+
+/**
+ * Approve or reject shipping a claimed prize. Only a claimed winning code can
+ * be reviewed, and the reviewer is recorded: this is the control that stands
+ * between a submitted form and a parcel leaving the warehouse.
+ */
+export async function reviewClaim(
+  code: string,
+  status: "approved" | "rejected",
+  reviewer: string,
+  note?: string
+): Promise<CodeRecord | null> {
+  const supabase = getAdminClient();
+  const { data, error } = await supabase
+    .from("codes")
+    .update({
+      shipping_status: status,
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: reviewer,
+      review_note: note?.slice(0, 500) ?? null,
+    })
+    .eq("code", code)
+    .eq("claimed", true)
+    .select(CODE_COLUMNS)
+    .maybeSingle();
+
+  if (error) throw new Error(`Supabase reviewClaim failed: ${error.message}`);
+  if (!data) return null;
+  return rowToRecord(data as DbCodeRow);
 }

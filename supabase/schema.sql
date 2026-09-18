@@ -183,6 +183,37 @@ create index if not exists idx_customers_email on public.customers (email);
 alter table public.codes add column if not exists customer_id uuid references public.customers(id);
 create index if not exists idx_codes_customer on public.codes (customer_id);
 
+-- 8d) Shipping review. A claim is recorded the moment the winner submits, but
+--     the prize only ships once a person approves it. The codes were printed
+--     from a plaintext factory file that circulated by email, so anyone
+--     holding that file can submit a claim without ever touching a hologram.
+--     This is the step that catches that before anything is sent.
+alter table public.codes add column if not exists shipping_status text not null default 'pending';
+alter table public.codes add column if not exists reviewed_at timestamptz;
+alter table public.codes add column if not exists reviewed_by text;
+alter table public.codes add column if not exists review_note text;
+
+do $$ begin
+  alter table public.codes add constraint codes_shipping_status_check
+    check (shipping_status in ('pending', 'approved', 'rejected'));
+exception when duplicate_object then null; end $$;
+
+create index if not exists idx_codes_shipping_status on public.codes (shipping_status)
+  where claimed = true;
+
+-- 8e) claim_attempts: per-IP throttle on the public claim endpoint, so the
+--     same file cannot be walked from one machine. Same shape as
+--     login_attempts, but append-only: the window is counted, not overwritten.
+create table if not exists public.claim_attempts (
+  id uuid primary key default gen_random_uuid(),
+  ip text not null,
+  code text,
+  succeeded boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_claim_attempts_ip on public.claim_attempts (ip, created_at desc);
+
 -- 9) Functions ---------------------------------------------------------------
 
 -- Recompute every character's stored win_probability from weight * remaining,
@@ -365,5 +396,6 @@ alter table public.loyalty_transactions enable row level security;
 alter table public.scan_requests enable row level security;
 alter table public.customers enable row level security;
 alter table public.loyalty_order_events enable row level security;
+alter table public.claim_attempts enable row level security;
 
 -- No policies = anon is denied. Service role bypasses RLS automatically.

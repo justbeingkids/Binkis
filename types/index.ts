@@ -11,6 +11,11 @@ export interface CodeRecord {
   winnerPhone: string | null;
   winnerAddress: string | null;
   characterName?: string | null;
+  /** Shipping review state. A claim is not a shipment. */
+  shippingStatus?: "pending" | "approved" | "rejected";
+  reviewedAt?: string | null;
+  reviewedBy?: string | null;
+  reviewNote?: string | null;
 }
 
 export interface CodeMetrics {
