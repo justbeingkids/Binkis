@@ -256,9 +256,15 @@ begin
     return;
   end if;
 
-  select * into v_char from public.characters
-    where active and win_probability > 0 and (quota - assigned_count) > 0
-    order by -ln(random()) / win_probability asc
+  -- Every column below is qualified on purpose. This function returns
+  -- table(id, name), and those output parameters are in scope for the whole
+  -- body, so a bare `id` or `name` is ambiguous with them and Postgres raises
+  -- 42702 at runtime rather than at creation. That is what it did: the
+  -- function failed on every single call, the app logged the error and
+  -- carried on, and no winning code was ever assigned a character.
+  select * into v_char from public.characters ch
+    where ch.active and ch.win_probability > 0 and (ch.quota - ch.assigned_count) > 0
+    order by -ln(random()) / ch.win_probability asc
     limit 1
     for update;
 
@@ -266,16 +272,16 @@ begin
   -- character is created). Refresh them and retry before giving up.
   if v_char.id is null then
     perform public.recompute_win_probabilities();
-    select * into v_char from public.characters
-      where active and win_probability > 0 and (quota - assigned_count) > 0
-      order by -ln(random()) / win_probability asc
+    select * into v_char from public.characters ch
+      where ch.active and ch.win_probability > 0 and (ch.quota - ch.assigned_count) > 0
+      order by -ln(random()) / ch.win_probability asc
       limit 1
       for update;
     if v_char.id is null then raise exception 'no_stock'; end if;
   end if;
 
-  update public.characters set assigned_count = assigned_count + 1 where id = v_char.id;
-  update public.codes set character_id = v_char.id where id = v_code_id;
+  update public.characters ch set assigned_count = ch.assigned_count + 1 where ch.id = v_char.id;
+  update public.codes c set character_id = v_char.id where c.id = v_code_id;
   perform public.recompute_win_probabilities();
 
   return query select v_char.id, v_char.name;
