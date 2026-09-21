@@ -20,8 +20,11 @@ export interface Tier {
 /** Ascending by threshold. Benefits are cumulative (permanent once unlocked). */
 export const TIERS: Tier[] = [
   { key: "collector", name: "Collector", points: 20, benefit: "Figura clasica BINKIS gratis" },
-  { key: "elite", name: "Elite Collector", points: 30, benefit: "Premium Display Case a $49 MXN (1 pieza)" },
-  { key: "founder", name: "Founder Reserve", points: 40, benefit: "VIP de por vida — Founders Reserve permanente" },
+  // Changed 2026-09-21 at the client's request: the acrylic display case is
+  // gone. Of each Limited's 777 pieces, 700 are hologram prizes and 77 are
+  // sold at a progressive price; these two tiers are about that sale.
+  { key: "elite", name: "Elite Collector", points: 30, benefit: "Acceso a la venta de las 77 piezas Limited" },
+  { key: "founder", name: "Founder Reserve", points: 40, benefit: "Acceso VIP 24 horas antes a la venta progresiva" },
 ];
 
 export interface TierStatus {

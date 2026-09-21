@@ -13,8 +13,10 @@ export interface LoyaltyStatus {
   pointsToNext: number | null;
   eligibility: {
     freeClassicFigure: boolean;
-    displayCaseAt49: boolean;
-    founderReserve: boolean;
+    /** 30 points: may buy in the 77-piece Limited sale. */
+    limitedSaleAccess: boolean;
+    /** 40 points: may buy 24 hours before the public opening. */
+    vipEarlyAccess: boolean;
   };
 }
 
@@ -29,8 +31,8 @@ export function statusForPoints(points: number): LoyaltyStatus {
     pointsToNext: t.pointsToNext,
     eligibility: {
       freeClassicFigure: has("collector"),
-      displayCaseAt49: has("elite"),
-      founderReserve: has("founder"),
+      limitedSaleAccess: has("elite"),
+      vipEarlyAccess: has("founder"),
     },
   };
 }

@@ -73,9 +73,25 @@ Respuesta:
   "unlocked": [{ "key": "collector", "name": "Collector", "benefit": "Figura clasica BINKIS gratis" }],
   "next": { "key": "elite", "name": "Elite Collector", "points": 30 },
   "pointsToNext": 8,
-  "eligibility": { "freeClassicFigure": true, "displayCaseAt49": false, "founderReserve": false }
+  "eligibility": { "freeClassicFigure": true, "limitedSaleAccess": false, "vipEarlyAccess": false }
 }
 ```
+
+Niveles (septiembre 2026):
+
+| Puntos | Nivel | `eligibility` | Beneficio |
+|---|---|---|---|
+| 20 | Collector | `freeClassicFigure` | Figura clásica gratis |
+| 30 | Elite Collector | `limitedSaleAccess` | Acceso a la venta de las 77 piezas Limited |
+| 40 | Founder Reserve | `vipEarlyAccess` | Acceso VIP 24 horas antes a la venta progresiva |
+
+Los beneficios son acumulativos: quien tiene 40 tiene los tres.
+
+Importante sobre los accesos a la venta: ocultar el botón de compra en el
+tema no basta, porque un producto se puede agregar al carrito con una URL
+directa. Para que el acceso sea real hay que validarlo también del lado de
+Shopify, con etiquetas de cliente o con una validación de carrito, usando
+este mismo campo como fuente.
 
 Sin sesión iniciada devuelve `{ "loggedIn": false }`. La app verifica la firma
 de Shopify y rechaza cualquier petición de más de cinco minutos.
