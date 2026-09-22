@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Input, Textarea } from "@/components/ui/Input";
+import { Input } from "@/components/ui/Input";
+import { MX_STATES } from "@/lib/mx-states";
 
 interface WinnerFormProps {
   code: string;
@@ -31,7 +32,13 @@ export function WinnerForm({ code }: WinnerFormProps) {
       name: String(form.get("name") ?? ""),
       email: String(form.get("email") ?? ""),
       phone: String(form.get("phone") ?? ""),
-      address: String(form.get("address") ?? ""),
+      street: String(form.get("street") ?? ""),
+      extNumber: String(form.get("extNumber") ?? ""),
+      intNumber: String(form.get("intNumber") ?? ""),
+      colonia: String(form.get("colonia") ?? ""),
+      postalCode: String(form.get("postalCode") ?? ""),
+      city: String(form.get("city") ?? ""),
+      state: String(form.get("state") ?? ""),
     };
 
     try {
@@ -105,15 +112,84 @@ export function WinnerForm({ code }: WinnerFormProps) {
         placeholder="+52 ..."
         disabled={submitting}
       />
-      <Textarea
-        label="Direccion de envio"
-        name="address"
-        required
-        minLength={8}
-        autoComplete="street-address"
-        placeholder="Calle, numero, colonia, ciudad, estado, CP"
-        disabled={submitting}
-      />
+      <fieldset className="flex flex-col gap-4" disabled={submitting}>
+        <legend className="mb-1 text-sm font-semibold text-ink-900">Direccion de envio</legend>
+        <Input
+          label="Calle"
+          name="street"
+          required
+          minLength={2}
+          autoComplete="address-line1"
+          placeholder="Ej. Colibri"
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Numero exterior"
+            name="extNumber"
+            required
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="48"
+          />
+          <Input
+            label="Numero interior"
+            name="intNumber"
+            autoComplete="address-line2"
+            placeholder="Opcional"
+          />
+        </div>
+        <Input
+          label="Colonia"
+          name="colonia"
+          required
+          minLength={2}
+          autoComplete="address-level3"
+          placeholder="Ej. Los Lagos"
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Codigo postal"
+            name="postalCode"
+            required
+            inputMode="numeric"
+            pattern="[0-9]{5}"
+            maxLength={5}
+            autoComplete="postal-code"
+            placeholder="83245"
+            title="5 digitos"
+          />
+          <Input
+            label="Ciudad"
+            name="city"
+            required
+            minLength={2}
+            autoComplete="address-level2"
+            placeholder="Hermosillo"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="state" className="text-sm font-medium text-ink-700">
+            Estado
+          </label>
+          <select
+            id="state"
+            name="state"
+            required
+            defaultValue=""
+            autoComplete="address-level1"
+            className="h-10 rounded-md border border-ink-200 bg-white px-3 text-sm text-ink-900 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1 disabled:bg-surface-muted disabled:text-ink-400"
+          >
+            <option value="" disabled>
+              Selecciona tu estado
+            </option>
+            {MX_STATES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
+      </fieldset>
       {error ? (
         <div
           role="alert"

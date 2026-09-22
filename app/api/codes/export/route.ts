@@ -14,6 +14,15 @@ const SHEET_HEADERS = [
   "winner_email",
   "winner_phone",
   "winner_address",
+  // The same address in parts, one column each, so a shipping label or a
+  // carrier upload can be filled straight from the export.
+  "winner_street",
+  "winner_ext_number",
+  "winner_int_number",
+  "winner_colonia",
+  "winner_postal_code",
+  "winner_city",
+  "winner_state",
   "character",
   "generated_at",
 ] as const;
@@ -110,6 +119,20 @@ export async function GET(request: Request) {
             return r.winnerPhone ?? "";
           case "winner_address":
             return r.winnerAddress ?? "";
+          case "winner_street":
+            return r.winnerAddressParts?.street ?? "";
+          case "winner_ext_number":
+            return r.winnerAddressParts?.extNumber ?? "";
+          case "winner_int_number":
+            return r.winnerAddressParts?.intNumber ?? "";
+          case "winner_colonia":
+            return r.winnerAddressParts?.colonia ?? "";
+          case "winner_postal_code":
+            return r.winnerAddressParts?.postalCode ?? "";
+          case "winner_city":
+            return r.winnerAddressParts?.city ?? "";
+          case "winner_state":
+            return r.winnerAddressParts?.state ?? "";
           case "character":
             return r.characterName ?? "";
           case "generated_at":

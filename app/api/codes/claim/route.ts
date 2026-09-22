@@ -4,6 +4,7 @@ import { markCodeClaimed } from "@/lib/supabase/codes";
 import { linkCustomer } from "@/lib/supabase/customers";
 import { assignCharacter } from "@/lib/supabase/characters";
 import { isValidCodeFormat } from "@/lib/codes/generator";
+import { addressSchema, composeAddress } from "@/lib/address";
 import { clientIp } from "@/lib/client-ip";
 import { logAdminEvent } from "@/lib/supabase/audit-log";
 import { checkClaimThrottle, recordClaimAttempt, reportClaimFlood } from "@/lib/supabase/claim-throttle";
@@ -15,8 +16,7 @@ const bodySchema = z.object({
   name: z.string().min(2, "Nombre requerido").max(100),
   email: z.string().email("Correo invalido"),
   phone: z.string().min(6, "Telefono requerido").max(30),
-  address: z.string().min(8, "Direccion requerida").max(300),
-});
+}).merge(addressSchema);
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -34,7 +34,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const { code, ...winner } = parsed.data;
+  const { code, name, email, phone, ...parts } = parsed.data;
+  const winner = { name, email, phone, address: composeAddress(parts), parts };
 
   if (!isValidCodeFormat(code)) {
     return NextResponse.json({ error: "Codigo no valido" }, { status: 400 });

@@ -201,6 +201,17 @@ exception when duplicate_object then null; end $$;
 create index if not exists idx_codes_shipping_status on public.codes (shipping_status)
   where claimed = true;
 
+-- 8d-bis) The winner's address in parts, as the claim form now collects it.
+--     winner_address stays, composed from these, so everything that already
+--     reads it (the review panel, link_customer) keeps working unchanged.
+alter table public.codes add column if not exists winner_street text;
+alter table public.codes add column if not exists winner_ext_number text;
+alter table public.codes add column if not exists winner_int_number text;
+alter table public.codes add column if not exists winner_colonia text;
+alter table public.codes add column if not exists winner_postal_code text;
+alter table public.codes add column if not exists winner_city text;
+alter table public.codes add column if not exists winner_state text;
+
 -- 8e) claim_attempts: per-IP throttle on the public claim endpoint, so the
 --     same file cannot be walked from one machine. Same shape as
 --     login_attempts, but append-only: the window is counted, not overwritten.
