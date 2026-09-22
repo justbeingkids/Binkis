@@ -65,10 +65,15 @@ function rowToRecord(row: DbCodeRow): CodeRecord {
   };
 }
 
-/** Columns every code read returns. */
+/**
+ * Columns every code read returns.
+ *
+ * Keep this ONE string literal. supabase-js parses the literal type passed to
+ * select() to work out the row shape; a "+" concatenation types as plain
+ * string, the parser gives up, and the build fails on every cast below.
+ */
 const CODE_COLUMNS =
-  "code,is_winner,claimed,claimed_at,winner_name,winner_email,winner_phone,winner_address,created_at,shipping_status,reviewed_at,reviewed_by,review_note," +
-  "winner_street,winner_ext_number,winner_int_number,winner_colonia,winner_postal_code,winner_city,winner_state";
+  "code,is_winner,claimed,claimed_at,winner_name,winner_email,winner_phone,winner_address,created_at,shipping_status,reviewed_at,reviewed_by,review_note,winner_street,winner_ext_number,winner_int_number,winner_colonia,winner_postal_code,winner_city,winner_state";
 
 export async function getAllCodes(): Promise<CodeRecord[]> {
   const supabase = getAdminClient();
