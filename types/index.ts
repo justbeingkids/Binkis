@@ -16,6 +16,8 @@ export interface CodeRecord {
   reviewedAt?: string | null;
   reviewedBy?: string | null;
   reviewNote?: string | null;
+  /** Structured address, present for claims made with the split form. */
+  winnerAddressParts?: import("@/lib/address").AddressParts | null;
 }
 
 export interface CodeMetrics {

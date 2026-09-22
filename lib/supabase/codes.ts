@@ -1,5 +1,6 @@
 import { getAdminClient } from "./client";
 import type { CodeMetrics, CodeRecord } from "@/types";
+import type { AddressParts } from "@/lib/address";
 
 interface DbCodeRow {
   code: string;
@@ -15,6 +16,13 @@ interface DbCodeRow {
   reviewed_at?: string | null;
   reviewed_by?: string | null;
   review_note?: string | null;
+  winner_street?: string | null;
+  winner_ext_number?: string | null;
+  winner_int_number?: string | null;
+  winner_colonia?: string | null;
+  winner_postal_code?: string | null;
+  winner_city?: string | null;
+  winner_state?: string | null;
   // Present only when the query embeds the character relationship.
   characters?: { name: string } | { name: string }[] | null;
 }
@@ -43,12 +51,24 @@ function rowToRecord(row: DbCodeRow): CodeRecord {
     reviewedAt: row.reviewed_at ?? null,
     reviewedBy: row.reviewed_by ?? null,
     reviewNote: row.review_note ?? null,
+    winnerAddressParts: row.winner_street
+      ? ({
+          street: row.winner_street,
+          extNumber: row.winner_ext_number ?? "",
+          intNumber: row.winner_int_number ?? "",
+          colonia: row.winner_colonia ?? "",
+          postalCode: row.winner_postal_code ?? "",
+          city: row.winner_city ?? "",
+          state: row.winner_state ?? "",
+        } as AddressParts)
+      : null,
   };
 }
 
 /** Columns every code read returns. */
 const CODE_COLUMNS =
-  "code,is_winner,claimed,claimed_at,winner_name,winner_email,winner_phone,winner_address,created_at,shipping_status,reviewed_at,reviewed_by,review_note";
+  "code,is_winner,claimed,claimed_at,winner_name,winner_email,winner_phone,winner_address,created_at,shipping_status,reviewed_at,reviewed_by,review_note," +
+  "winner_street,winner_ext_number,winner_int_number,winner_colonia,winner_postal_code,winner_city,winner_state";
 
 export async function getAllCodes(): Promise<CodeRecord[]> {
   const supabase = getAdminClient();
@@ -132,7 +152,7 @@ export async function findCode(code: string): Promise<CodeRecord | null> {
  */
 export async function markCodeClaimed(
   code: string,
-  winner: { name: string; email: string; phone: string; address: string }
+  winner: { name: string; email: string; phone: string; address: string; parts?: AddressParts }
 ): Promise<{ record: CodeRecord; justClaimed: boolean } | null> {
   const supabase = getAdminClient();
   const existing = await findCode(code);
@@ -150,6 +170,17 @@ export async function markCodeClaimed(
       winner_email: winner.email,
       winner_phone: winner.phone,
       winner_address: winner.address,
+      ...(winner.parts
+        ? {
+            winner_street: winner.parts.street,
+            winner_ext_number: winner.parts.extNumber,
+            winner_int_number: winner.parts.intNumber || null,
+            winner_colonia: winner.parts.colonia,
+            winner_postal_code: winner.parts.postalCode,
+            winner_city: winner.parts.city,
+            winner_state: winner.parts.state,
+          }
+        : {}),
     })
     .eq("code", code)
     .eq("claimed", false)
