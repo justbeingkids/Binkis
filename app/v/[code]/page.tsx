@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { WinnerForm } from "@/components/public/WinnerForm";
+import { WinnerReveal } from "@/components/public/WinnerReveal";
 import { findCode } from "@/lib/supabase/codes";
 import { isValidCodeFormat } from "@/lib/codes/generator";
 import { formatDateTime } from "@/lib/format";
@@ -62,10 +63,12 @@ function ValidState({ code }: { code: string }) {
           <p className="text-xs font-medium uppercase tracking-wide text-ink-500">Codigo</p>
           <p className="mt-1 font-mono text-sm font-semibold text-ink-900">{code}</p>
         </div>
-        <p className="mb-5 text-sm text-ink-700">
-          Complete los datos para enviarle su premio.
-        </p>
-        <WinnerForm code={code} />
+        <WinnerReveal>
+          <p className="mb-5 text-sm text-ink-700">
+            Complete los datos para enviarle su premio.
+          </p>
+          <WinnerForm code={code} />
+        </WinnerReveal>
       </div>
     </div>
   );
