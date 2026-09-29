@@ -14,15 +14,36 @@ export const dynamic = "force-dynamic";
  * the store's developer would not have.
  */
 export async function GET(request: Request) {
+  // Names only, never values. Whoever opens this link is the person who can
+  // fix it, and a blank 500 tells them nothing.
+  const missing = (
+    [
+      ["SHOPIFY_STORE_DOMAIN", process.env.SHOPIFY_STORE_DOMAIN],
+      ["SHOPIFY_OAUTH_CLIENT_ID", process.env.SHOPIFY_OAUTH_CLIENT_ID],
+      ["SHOPIFY_OAUTH_CLIENT_SECRET", process.env.SHOPIFY_OAUTH_CLIENT_SECRET],
+      // Signs the state that survives the round trip to Shopify.
+      ["SESSION_SECRET", process.env.SESSION_SECRET],
+    ] as const
+  )
+    .filter(([, value]) => !value || value.trim() === "")
+    .map(([name]) => name);
+
+  if (missing.length > 0) {
+    return NextResponse.json({ error: "Faltan variables de entorno", missing }, { status: 500 });
+  }
+
   const shop = shopDomain();
   if (!isValidShop(shop)) {
     return NextResponse.json(
-      { error: "SHOPIFY_STORE_DOMAIN is not set to a myshopify.com domain" },
+      { error: "SHOPIFY_STORE_DOMAIN no es un dominio .myshopify.com", value: shop },
       { status: 500 },
     );
   }
-  if (!process.env.SHOPIFY_OAUTH_CLIENT_ID || !process.env.SHOPIFY_OAUTH_CLIENT_SECRET) {
-    return NextResponse.json({ error: "Faltan las credenciales de la app" }, { status: 500 });
+  if ((process.env.SESSION_SECRET ?? "").length < 32) {
+    return NextResponse.json(
+      { error: "SESSION_SECRET debe tener al menos 32 caracteres" },
+      { status: 500 },
+    );
   }
 
   const redirectUri = new URL("/api/shopify/callback", request.url).toString();
