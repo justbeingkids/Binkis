@@ -159,18 +159,30 @@ aplicación al procesar cada pedido pagado, justo después de sumar los puntos.
 Se usa `tagsAdd` de la Admin API, que solo agrega: nunca borra un tag que
 haya puesto alguien más, y dos pedidos simultáneos no se pisan.
 
-Hace falta el **Admin API access token** de una app personalizada, con el
-permiso `write_customers`:
+### Cómo se obtiene el permiso
 
-Shopify Admin → Settings → Apps and sales channels → Develop apps → (la app)
-→ API credentials → **Admin API access token** (empieza con `shpat_`).
+Shopify quitó las apps personalizadas que entregaban un token fijo (`shpat_`),
+así que la app se instala por OAuth, una sola vez:
 
-El Client ID y el Client Secret de OAuth no sirven para esto: son para el
-flujo de instalación de una app pública, que una tienda propia no necesita.
+1. En la app de Shopify, agregar a **Allowed redirection URLs**:
+   `APP/api/shopify/callback`
+2. Cargar en la aplicación `SHOPIFY_STORE_DOMAIN` (el dominio `.myshopify.com`),
+   `SHOPIFY_OAUTH_CLIENT_ID` y `SHOPIFY_OAUTH_CLIENT_SECRET`.
+3. Abrir en el navegador, con sesión de staff en la tienda:
+   `APP/api/shopify/install`
+4. Autorizar. Shopify manda el token al callback y queda guardado en la tabla
+   `shopify_oauth_tokens`. No hay que copiar ni pegar nada.
 
-Variables: `SHOPIFY_STORE_DOMAIN` y `SHOPIFY_ADMIN_TOKEN`. Sin ellas la
-aplicación sigue funcionando y solo deja de escribir tags, avisándolo en el
-log.
+Los permisos que pide son `write_customers` y `read_customers`, nada más.
+
+Qué protege esa ruta: el callback verifica la firma de Shopify sobre la
+consulta, verifica una firma propia en el `state`, y exige que la tienda sea
+exactamente la de `SHOPIFY_STORE_DOMAIN`. Una llamada que no venga de Shopify,
+o que venga por otra tienda, no guarda ningún token.
+
+`SHOPIFY_ADMIN_TOKEN` se sigue aceptando y tiene prioridad, por si alguna
+tienda todavía puede emitir uno a mano. Sin token, la aplicación funciona igual
+y solo deja de escribir tags, avisándolo en el log.
 
 Para los clientes que ya tienen puntos de antes:
 
