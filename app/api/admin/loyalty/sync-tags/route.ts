@@ -18,9 +18,9 @@ export const dynamic = "force-dynamic";
 export async function POST() {
   const session = await getAdminSession();
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  if (!adminConfigured()) {
+  if (!(await adminConfigured())) {
     return NextResponse.json(
-      { error: "Falta SHOPIFY_STORE_DOMAIN o SHOPIFY_ADMIN_TOKEN" },
+      { error: "Falta SHOPIFY_STORE_DOMAIN, o la app no esta instalada todavia" },
       { status: 400 },
     );
   }

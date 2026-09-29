@@ -225,6 +225,18 @@ create table if not exists public.claim_attempts (
 
 create index if not exists idx_claim_attempts_ip on public.claim_attempts (ip, created_at desc);
 
+-- 8f) The Admin API token from installing the app on the store.
+--     Shopify removed the legacy custom apps that issued a static token, so
+--     the token now arrives through OAuth and has to be kept. One row per
+--     shop. RLS denies anon, as everywhere else here, and only the service
+--     role (our server) can read it.
+create table if not exists public.shopify_oauth_tokens (
+  shop text primary key,
+  access_token text not null,
+  scope text,
+  installed_at timestamptz not null default now()
+);
+
 -- 9) Functions ---------------------------------------------------------------
 
 -- Recompute every character's stored win_probability from weight * remaining,
@@ -414,5 +426,6 @@ alter table public.scan_requests enable row level security;
 alter table public.customers enable row level security;
 alter table public.loyalty_order_events enable row level security;
 alter table public.claim_attempts enable row level security;
+alter table public.shopify_oauth_tokens enable row level security;
 
 -- No policies = anon is denied. Service role bypasses RLS automatically.

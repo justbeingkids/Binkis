@@ -1,4 +1,5 @@
 import { TIERS } from "@/lib/loyalty-tiers";
+import { storedToken } from "@/lib/shopify-oauth";
 
 /**
  * Writing level tags onto the Shopify customer.
@@ -12,9 +13,9 @@ import { TIERS } from "@/lib/loyalty-tiers";
  * set, and two orders landing at the same second cannot overwrite each other.
  * It is also idempotent, so re-running it costs a request and changes nothing.
  *
- * Needs a custom app's Admin API access token (shpat_...) with write_customers.
- * OAuth client credentials are a different thing and cannot be used here
- * without building the whole install flow, which a single store does not need.
+ * The token comes from installing the app on the store (see
+ * lib/shopify-oauth.ts). SHOPIFY_ADMIN_TOKEN still wins when set, for a store
+ * that can still issue a static one.
  */
 
 const API_VERSION = "2025-01";
@@ -31,8 +32,13 @@ export function tagsForPoints(points: number): string[] {
     .filter((tag): tag is string => Boolean(tag));
 }
 
-export function adminConfigured(): boolean {
-  return Boolean(process.env.SHOPIFY_STORE_DOMAIN && process.env.SHOPIFY_ADMIN_TOKEN);
+async function accessToken(): Promise<string | null> {
+  return process.env.SHOPIFY_ADMIN_TOKEN || (await storedToken());
+}
+
+/** True when tags can actually be written: a shop and a token. */
+export async function adminConfigured(): Promise<boolean> {
+  return Boolean(process.env.SHOPIFY_STORE_DOMAIN) && Boolean(await accessToken());
 }
 
 /**
@@ -44,12 +50,13 @@ export async function addCustomerTags(
   tags: string[],
 ): Promise<boolean> {
   if (tags.length === 0) return true;
-  if (!adminConfigured()) {
-    console.warn("SHOPIFY_ADMIN_TOKEN not set: skipping customer tags");
+
+  const domain = process.env.SHOPIFY_STORE_DOMAIN ?? "";
+  const token = await accessToken();
+  if (!domain || !token) {
+    console.warn("no Shopify admin token yet: skipping customer tags");
     return false;
   }
-
-  const domain = process.env.SHOPIFY_STORE_DOMAIN!;
   const query = `
     mutation addTags($id: ID!, $tags: [String!]!) {
       tagsAdd(id: $id, tags: $tags) {
@@ -62,7 +69,7 @@ export async function addCustomerTags(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Shopify-Access-Token": process.env.SHOPIFY_ADMIN_TOKEN!,
+        "X-Shopify-Access-Token": token,
       },
       body: JSON.stringify({
         query,
