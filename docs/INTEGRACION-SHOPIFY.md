@@ -150,6 +150,44 @@ webhook `refunds/create` con la misma mecánica.
 
 ---
 
+## 4b. Tags de nivel en el cliente de Shopify
+
+El tema bloquea el botón de la Edición Limitada salvo que el cliente traiga
+`elite-access` (30 puntos) o `vip-access` (40). Esos tags los escribe esta
+aplicación al procesar cada pedido pagado, justo después de sumar los puntos.
+
+Se usa `tagsAdd` de la Admin API, que solo agrega: nunca borra un tag que
+haya puesto alguien más, y dos pedidos simultáneos no se pisan.
+
+Hace falta el **Admin API access token** de una app personalizada, con el
+permiso `write_customers`:
+
+Shopify Admin → Settings → Apps and sales channels → Develop apps → (la app)
+→ API credentials → **Admin API access token** (empieza con `shpat_`).
+
+El Client ID y el Client Secret de OAuth no sirven para esto: son para el
+flujo de instalación de una app pública, que una tienda propia no necesita.
+
+Variables: `SHOPIFY_STORE_DOMAIN` y `SHOPIFY_ADMIN_TOKEN`. Sin ellas la
+aplicación sigue funcionando y solo deja de escribir tags, avisándolo en el
+log.
+
+Para los clientes que ya tienen puntos de antes:
+
+```
+POST APP/api/admin/loyalty/sync-tags     (con sesión de administrador)
+```
+
+Recorre las cuentas con puntos y les pone el tag que les toca. Es idempotente.
+
+Un detalle de tiempos para el tema: el tag se escribe cuando llega el webhook
+del pedido, unos segundos después del pago. Si alguien cruza los 30 puntos con
+una compra y recarga de inmediato, puede ver el botón bloqueado un momento. La
+consulta del App Proxy sí responde al instante, así que conviene que el tema
+muestre el estado con esa y deje el tag como candado del checkout.
+
+---
+
 ## 5. Variables de entorno
 
 En Vercel → Project → Settings → Environment Variables (Production):
@@ -164,6 +202,8 @@ En Vercel → Project → Settings → Environment Variables (Production):
 | `SHOPIFY_WEBHOOK_SECRET` | Shopify, al crear el webhook |
 | `SHOPIFY_API_SECRET` | client secret del app que tiene el App Proxy |
 | `LOYALTY_API_KEY` | generar igual que `SESSION_SECRET` |
+| `SHOPIFY_STORE_DOMAIN` | `tienda.myshopify.com` |
+| `SHOPIFY_ADMIN_TOKEN` | Admin API access token de la app (`shpat_...`), scope `write_customers` |
 
 `SESSION_SECRET` es obligatoria y tiene que ser distinta de la service role
 key: antes las sesiones de admin se firmaban con esa llave, de modo que
