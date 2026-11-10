@@ -24,3 +24,19 @@ export const WIN_VIDEO = {
     process.env.NEXT_PUBLIC_WIN_VIDEO_LANDSCAPE ??
     "https://onnygtipckzlogaejcab.supabase.co/storage/v1/object/public/media/win/landscape-720.mp4",
 } as const;
+
+/**
+ * Which cut this screen should load. Browser only: it reads the window.
+ *
+ * Call it from an effect rather than during render. On the server there is no
+ * orientation to read, and guessing one there would mean the first paint and
+ * the first frame disagree.
+ *
+ * The width test is deliberately alongside the orientation query. A phone held
+ * sideways is still a phone, and the vertical cut is the one framed for it.
+ */
+export function chooseWinVideo(): string {
+  const portrait =
+    window.matchMedia("(orientation: portrait)").matches || window.innerWidth < 768;
+  return portrait ? WIN_VIDEO.portrait : WIN_VIDEO.landscape;
+}

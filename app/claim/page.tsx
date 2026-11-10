@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { WinnerForm } from "@/components/public/WinnerForm";
 import { WinnerReveal } from "@/components/public/WinnerReveal";
+import { WinReplay } from "@/components/public/WinReplay";
 import { findCode } from "@/lib/supabase/codes";
 import { isValidCodeFormat } from "@/lib/codes/generator";
 import { formatDateTime } from "@/lib/format";
@@ -60,7 +61,7 @@ export default async function ClaimPage({ searchParams }: PageProps) {
           <NotAWinnerState code={cleaned} />
         ) : null}
         {record && record.isWinner && record.claimed ? (
-          <ClaimedState claimedAt={record.claimedAt} />
+          <ClaimedState claimedAt={record.claimedAt} code={cleaned} />
         ) : null}
         {record && record.isWinner && !record.claimed ? (
           <ValidState code={cleaned} />
@@ -102,7 +103,19 @@ function ValidState({ code }: { code: string }) {
   );
 }
 
-function ClaimedState({ claimedAt }: { claimedAt: string | null }) {
+/**
+ * A winning hologram that has already been claimed.
+ *
+ * This used to be a notice and nothing else, which made the winner's own
+ * hologram a dead end: scan it twice and the thing you won was gone. The
+ * client asked for the video to stay watchable and shareable, so it does.
+ *
+ * THE CLAIMED FACT STAYS ABOVE THE VIDEO, not under it. Not everyone who
+ * scans this is the winner. A card changes hands, and whoever holds it next
+ * has to read "already claimed" before anything celebratory, or the page
+ * promises them a prize that was given away in September.
+ */
+function ClaimedState({ claimedAt, code }: { claimedAt: string | null; code: string }) {
   return (
     <div className="rounded-lg border border-ink-200 bg-white shadow-soft">
       <div className="border-b border-ink-100 px-6 py-5">
@@ -119,7 +132,12 @@ function ClaimedState({ claimedAt }: { claimedAt: string | null }) {
           El premio asociado a este codigo ya fue asignado el{" "}
           <span className="font-semibold">{formatDateTime(claimedAt)}</span>.
         </p>
-        <p className="mt-3 text-xs text-ink-400">
+
+        <div className="mt-5">
+          <WinReplay code={code} />
+        </div>
+
+        <p className="mt-4 text-xs text-ink-400">
           Si crees que esto es un error, comunicate con el equipo de soporte de BinKis.
         </p>
       </div>

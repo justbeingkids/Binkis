@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Play, SkipForward } from "lucide-react";
-import { WIN_VIDEO } from "@/lib/win-video";
+import { WIN_VIDEO, chooseWinVideo } from "@/lib/win-video";
 
 /**
  * The moment between "this hologram is a winner" and the shipping form.
@@ -43,8 +43,7 @@ export function WinnerReveal({ children }: { children: ReactNode }) {
       setStage("done");
       return;
     }
-    const portrait = window.matchMedia("(orientation: portrait)").matches || window.innerWidth < 768;
-    setSrc(portrait ? WIN_VIDEO.portrait : WIN_VIDEO.landscape);
+    setSrc(chooseWinVideo());
   }, []);
 
   async function start() {
