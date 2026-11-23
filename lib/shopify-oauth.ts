@@ -16,7 +16,24 @@ import { signSession, verifySession } from "@/lib/session";
  * refused rather than stored.
  */
 
-const SCOPES = "write_customers,read_customers";
+/**
+ * What the install asks Shopify for.
+ *
+ * A token carries the scopes the AUTHORIZE REQUEST asked for, not the ones the
+ * app happens to have enabled. MIMIC enabled eight on 23 November 2026
+ * (write/read customers, write/read orders, write/read draft orders,
+ * read_products, read_inventory); asking for all eight would widen what a
+ * stolen token could do for no gain, so this asks for the three that are
+ * actually used: the tags written on a customer when points are earned, and
+ * the zero-value order raised when a hologram winner registers a Limited they
+ * never paid for.
+ *
+ * Widening this list changes nothing on its own. The stored token keeps the
+ * scopes it was granted until somebody opens /api/shopify/install again and
+ * authorises, which is exactly why /api/shopify/status reports asked-for and
+ * granted side by side instead of just one of them.
+ */
+export const SCOPES = "write_customers,read_customers,write_orders";
 const INSTALL_TTL_MS = 30 * 60 * 1000;
 
 export function shopDomain(): string {
@@ -101,4 +118,27 @@ export async function storedToken(): Promise<string | null> {
   const token = (data as { access_token: string } | null)?.access_token ?? null;
   if (token) cached = { token, at: Date.now() };
   return token;
+}
+
+/**
+ * The scopes the stored token was actually granted, or null when no token has
+ * been stored yet.
+ *
+ * Read fresh rather than cached: it is only ever asked for by the status
+ * endpoint, and the one moment it matters is immediately after somebody
+ * re-authorises, which is precisely when a sixty second cache would lie.
+ */
+export async function storedScopes(): Promise<string[] | null> {
+  const { data, error } = await getAdminClient()
+    .from("shopify_oauth_tokens")
+    .select("scope")
+    .eq("shop", shopDomain())
+    .maybeSingle();
+  if (error) {
+    console.error("reading the Shopify token scopes failed:", error.message);
+    return null;
+  }
+  const scope = (data as { scope: string | null } | null)?.scope ?? "";
+  const list = scope.split(",").map((s) => s.trim()).filter(Boolean);
+  return list.length > 0 ? list : null;
 }

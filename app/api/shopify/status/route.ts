@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { shopDomain } from "@/lib/shopify-oauth";
+import { SCOPES, shopDomain, storedScopes } from "@/lib/shopify-oauth";
 import { adminConfigured } from "@/lib/shopify-admin";
+import { pointsRuleFromEnv } from "@/lib/loyalty-points";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,9 @@ export async function GET() {
   const clientId = process.env.SHOPIFY_OAUTH_CLIENT_ID ?? "";
   const secret = process.env.SHOPIFY_OAUTH_CLIENT_SECRET ?? "";
   const proxySecret = process.env.SHOPIFY_API_SECRET ?? "";
+  const staticToken = Boolean(process.env.SHOPIFY_ADMIN_TOKEN);
+  const granted = await storedScopes();
+  const rule = pointsRuleFromEnv();
 
   return NextResponse.json(
     {
@@ -32,6 +36,26 @@ export async function GET() {
       // True once the app has been installed and the token stored, which is
       // what decides whether customer tags can be written at all.
       canWriteCustomerTags: await adminConfigured(),
+
+      // Asked for against actually granted, because they drift. Widening
+      // SCOPES does nothing until somebody re-authorises, and before this
+      // pair existed the only way to find out was to watch an order fail.
+      tokenSource: staticToken ? "SHOPIFY_ADMIN_TOKEN" : granted ? "oauth" : "ninguno",
+      requestedScopes: SCOPES.split(","),
+      grantedScopes: granted,
+      // The zero-value order raised for a hologram winner needs write_orders.
+      // False with tokenSource "oauth" means the install has to be re-run.
+      // Unknowable for a static token, which carries its scopes out of band.
+      canCreateOrders: staticToken ? null : (granted?.includes("write_orders") ?? false),
+
+      // Counts, never the SKUs themselves: this answers "are the points rules
+      // configured at all", which is the question that matters before the
+      // first real sale. Both zero means every line of every order earns a
+      // point, so a display case would score the same as a figure.
+      loyaltyRules: {
+        pieceSkuPrefixes: rule.pieceSkuPrefixes.length,
+        collectionSkus: rule.collectionSkus.length,
+      },
     },
     { headers: { "Cache-Control": "no-store" } },
   );
