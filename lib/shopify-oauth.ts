@@ -23,17 +23,25 @@ import { signSession, verifySession } from "@/lib/session";
  * app happens to have enabled. MIMIC enabled eight on 23 November 2026
  * (write/read customers, write/read orders, write/read draft orders,
  * read_products, read_inventory); asking for all eight would widen what a
- * stolen token could do for no gain, so this asks for the three that are
+ * stolen token could do for no gain, so this asks for the two that are
  * actually used: the tags written on a customer when points are earned, and
  * the zero-value order raised when a hologram winner registers a Limited they
  * never paid for.
+ *
+ * NO read_customers, AND THAT IS NOT AN OVERSIGHT. Shopify folds implied
+ * scopes, so write_customers already carries it, and the granted list comes
+ * back naming only the write. Asking for both made /api/shopify/status report
+ * three requested against one granted forever, which is a phantom mismatch in
+ * the one field whose job is to make a real mismatch obvious. Nothing reads a
+ * customer from the Admin API anyway: the only call is the tagsAdd mutation,
+ * and emailForShopifyCustomer reads Supabase.
  *
  * Widening this list changes nothing on its own. The stored token keeps the
  * scopes it was granted until somebody opens /api/shopify/install again and
  * authorises, which is exactly why /api/shopify/status reports asked-for and
  * granted side by side instead of just one of them.
  */
-export const SCOPES = "write_customers,read_customers,write_orders";
+export const SCOPES = "write_customers,write_orders";
 const INSTALL_TTL_MS = 30 * 60 * 1000;
 
 export function shopDomain(): string {
